@@ -22,6 +22,18 @@
   </style>
 </head>
 <body class="bg-gray-100 text-gray-900">
+  <nav class="flex items-center gap-6">
+  <a href="{{ route('invoices.index') }}"
+     class="{{ request()->routeIs('invoices.*') ? 'text-indigo-600 font-semibold' : 'text-gray-600' }}">
+     Invoices
+  </a>
+
+  <a href="{{ route('quotes.index') }}"
+     class="{{ request()->routeIs('quotes.*') ? 'text-indigo-600 font-semibold' : 'text-gray-600' }}">
+     Quotations
+  </a>
+</nav>
+
   <div class="max-w-7xl mx-auto p-6">
     <nav class="mb-6">
       <a href="{{ route('invoices.index') }}" class="text-indigo-600 hover:underline font-semibold">Invoices</a>
@@ -29,6 +41,7 @@
         <span class="pill ml-2 text-green-700 bg-green-100">{{ session('ok') }}</span>
       @endif
     </nav>
+    
 
     @yield('content')
   </div>
