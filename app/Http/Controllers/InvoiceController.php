@@ -33,6 +33,11 @@ class InvoiceController extends Controller
         return view('invoices.create');
     }
 
+    public function show(Invoice $invoice)
+    {
+        return redirect()->route('invoices.edit', $invoice);
+    }
+
     public function store(Request $request)
     {
         $data = $request->validate([
