@@ -74,8 +74,7 @@ Route::get('/', fn () => redirect()->route('invoices.index'))
 Route::patch('/quotations/{quotation}/autosave', [QuotationController::class, 'autosave'])
     ->name('quotations.autosave'); // ใช้ {quotation} ให้ตรงกับ model binding
 
-Route::resource('invoices', InvoiceController::class)
-    ->only(['index','create','store','show','edit','update','destroy']);
+Route::resource('invoices', InvoiceController::class);
 
 Route::resource('quotations', QuotationController::class)
     ->only(['index','create','store','show','edit','update','destroy']);

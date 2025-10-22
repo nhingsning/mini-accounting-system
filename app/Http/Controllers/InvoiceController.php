@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Invoice;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
 class InvoiceController extends Controller
@@ -31,6 +32,11 @@ class InvoiceController extends Controller
     public function create()
     {
         return view('invoices.create');
+    }
+
+    public function show(Invoice $invoice): RedirectResponse
+    {
+        return redirect()->route('invoices.edit', $invoice);
     }
 
     public function store(Request $request)
