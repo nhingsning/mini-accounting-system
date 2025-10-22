@@ -36,6 +36,7 @@ class InvoiceController extends Controller
 
     public function show(Invoice $invoice): RedirectResponse
     {
+        // ช่วงนี้ยังไม่มีหน้า show จริง ให้เด้งไปหน้าแก้ไข
         return redirect()->route('invoices.edit', $invoice);
     }
 
