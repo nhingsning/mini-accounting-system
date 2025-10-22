@@ -1,11 +1,32 @@
+/* 1) โหลดฟอนต์ให้ตรงกับ layout */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Prompt:wght@400;500;600&display=swap');
+
+/* 2) เปิดใช้งาน Tailwind v4 */
 @import 'tailwindcss';
 
+/* 3) ระบุไฟล์ที่ Tailwind ต้องสแกน (v4 syntax) */
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
 @source '../**/*.blade.php';
 @source '../**/*.js';
 
+/* 4) ตั้งค่าฟอนต์ดีฟอลต์ทั้งแอป */
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
+  --font-sans: 'Inter','Prompt', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji','Segoe UI Emoji','Segoe UI Symbol','Noto Color Emoji';
+}
+
+/* 5) ย้ายยูทิลิตี้ที่หนิงเขียนไว้ใน <style> มาไว้ตรงนี้ */
+@layer components {
+  .btn { @apply inline-flex items-center px-4 py-2 rounded-lg border text-sm font-medium shadow-sm transition; }
+  .btn-primary { @apply bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700; }
+  .btn-ghost { @apply border-gray-300 hover:bg-gray-50; }
+  .btn-danger { @apply bg-rose-600 text-white border-rose-600 hover:bg-rose-700; }
+
+  .input { @apply w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500; }
+  .table { @apply min-w-full text-sm; }
+  .th { @apply px-3 py-2 text-left font-semibold text-gray-700; }
+  .td { @apply px-3 py-2 align-top; }
+  .card { @apply bg-white rounded-2xl shadow p-5; }
+  .pill { @apply inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium bg-gray-100 text-gray-800; }
+  .right-panel { @apply sticky top-4; }
 }

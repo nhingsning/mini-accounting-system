@@ -1,0 +1,104 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Carbon\Carbon;
+
+class DashboardController extends Controller
+{
+    public function index(Request $request)
+    {
+        // ===== Config / helpers =====
+        $driver  = DB::connection()->getDriverName();           // sqlite | mysql | pgsql ...
+        $today   = Carbon::today();
+        $fromY   = $today->copy()->startOfYear();
+        $dateCol = $this->pickDateColumn('invoices', ['issue_date','issued_at','created_at']);
+
+        // ===== Monthly Expenses (สรุปเป็น 12 เดือน) =====
+        // NOTE: ปรับ where() ให้ตรงกับนิยาม "ค่าใช้จ่าย" ของหนิง
+        //  - ถ้าเก็บค่าใช้จ่ายเป็นเลขติดลบ ให้ where('total','<',0)
+        //  - ถ้ามีคอลัมน์ type = 'expense' ให้เปลี่ยนเป็น where('type','expense')
+        $monthExpr = $this->monthExtract($driver, $dateCol);    // คืน string expression ของเดือน 01..12
+        $base = DB::table('invoices')->selectRaw("$monthExpr as m, SUM(total) as s")
+                 ->whereBetween($dateCol, [$fromY, $today]);
+
+        // ทางเลือก: ใช้ total<0 เป็น "ค่าใช้จ่าย"
+        $monthlyExpenses = (clone $base)
+            ->where('total', '<', 0)
+            ->groupBy('m')
+            ->pluck('s','m')
+            ->all();
+
+        // เตรียม array 12 เดือนให้ครบ
+        $barData = [];
+        for ($i=1;$i<=12;$i++){
+            $key = str_pad((string)$i,2,'0',STR_PAD_LEFT);
+            $barData[] = round(($monthlyExpenses[$key] ?? 0) * -1, 2); // กลับเป็นบวกเพื่อพล็อต
+        }
+
+        // ===== KPIs: AR/AP / Net Profit / Closing Balance =====
+        // Receivable: ใบแจ้งหนี้ที่ยังไม่จ่าย (status != 'paid')
+        $hasStatus = Schema::hasColumn('invoices','status');
+        $arQuery = DB::table('invoices');
+        if ($hasStatus) $arQuery->whereNotIn('status', ['paid','cancelled']);
+        $accountsReceivable = (float) $arQuery->where('total','>',0)->sum('total');
+
+        // Payable: ค่าใช้จ่ายที่ยังไม่จ่าย (ถ้าไม่มีสถานะ จะรวมทั้งก้อนค่าใช้จ่าย)
+        $apQuery = DB::table('invoices')->where('total','<',0);
+        if ($hasStatus) $apQuery->whereNotIn('status', ['paid','cancelled']);
+        $accountsPayable = (float) $apQuery->sum('total'); // เป็นลบ
+        $accountsPayableAbs = abs($accountsPayable);
+
+        // Net Profit (ง่ายๆ): รายรับบวกทั้งหมด + ค่าใช้จ่าย (ค่าลบ)
+        $revenue = (float) DB::table('invoices')->where('total','>',0)->sum('total');
+        $expenses= (float) DB::table('invoices')->where('total','<',0)->sum('total'); // ค่าลบ
+        $netProfit = $revenue + $expenses;
+
+        // Closing Balance: ยอดสุทธิสะสมทั้งหมด
+        $closingBalance = (float) DB::table('invoices')->sum('total');
+
+        // ===== Recent Transactions (3 รายการล่าสุด) =====
+        $dateSortCol = $dateCol ?? 'created_at';
+        $recent = DB::table('invoices')
+            ->select('id','customer_name','total','status',$dateSortCol.' as d')
+            ->orderByDesc($dateSortCol)->limit(3)->get();
+
+        // ===== Expenses Breakdown (กลุ่มตัวอย่าง)
+        // ถ้าหนิงมีคอลัมน์ category ให้ groupBy('category') ได้เลย
+        $breakdown = DB::table('invoices')
+            ->selectRaw('CASE WHEN total<0 THEN "General" ELSE "Other" END as label, SUM(ABS(total)) as amount')
+            ->groupBy('label')->orderByDesc('amount')->limit(6)->get();
+
+        return view('dashboard', [
+            'chartMonths' => ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
+            'barData'     => $barData,
+            'kpis'        => [
+                'ar' => $accountsReceivable,
+                'ap' => $accountsPayableAbs,
+                'netProfit' => $netProfit,
+                'closing'   => $closingBalance,
+            ],
+            'recent'      => $recent,
+            'breakdown'   => $breakdown,
+            'periodText'  => $fromY->format('M d, Y').' – '.$today->format('M d, Y'),
+        ]);
+    }
+
+    private function pickDateColumn(string $table, array $pref)
+    {
+        foreach ($pref as $c) if (Schema::hasColumn($table,$c)) return $c;
+        return 'created_at';
+    }
+
+    private function monthExtract(string $driver, string $col)
+    {
+        return match($driver){
+            'mysql'  => "DATE_FORMAT($col, '%m')",
+            'pgsql'  => "TO_CHAR($col, 'MM')",
+            default  => "strftime('%m', $col)", // sqlite & others
+        };
+    }
+}

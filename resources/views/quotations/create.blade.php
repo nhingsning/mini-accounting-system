@@ -1,291 +1,484 @@
- @extends('layouts.app')
+@extends('layouts.app')
 
-@section('content')
-<form method="post" action="{{ route('quotes.store') }}" id="invoice-form" class="grid lg:grid-cols-3 gap-6">
-  @csrf
+@section('body')
 
-  {{-- ซ้าย: รายละเอียด + รายการ --}}
-  <div class="lg:col-span-2 space-y-6">
+<style>
+:root{--brand:#2B4A72;--ink:#0f172a;--muted:#64748b;--line:#e5e7eb;--bg:#f8fafc;--card:#ffffff}
+body{background:var(--bg)}
+.fa-wrap{max-width:1160px;margin:0 auto;padding:20px}
+.fa-topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.fa-title{font-size:20px;font-weight:700;color:var(--ink)}
+.fa-actions{display:flex;gap:8px}
+.fa-btn{display:inline-flex;align-items:center;gap:6px;border-radius:10px;border:1px solid var(--line);padding:8px 12px;text-decoration:none;font-weight:600}
+.fa-btn.save{background:var(--brand);color:#fff;border-color:var(--brand)}
+.fa-btn.light{background:#fff;color:var(--ink)}
+.fa-card{background:var(--card);border:1px solid var(--line);border-radius:14px}
+.fa-grid{display:grid;grid-template-columns:1fr 340px;gap:16px}
+@media (max-width: 992px){.fa-grid{grid-template-columns:1fr}}
+.fa-section{padding:16px}
+.fa-meta dl{display:grid;grid-template-columns:130px 1fr;gap:8px 12px;margin:0}
+.fa-meta dt{color:var(--muted)} .fa-meta dd{margin:0;font-weight:700}
+.fa-label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+.fa-input,.fa-textarea,.fa-select{width:100%;background:#fff;border:1px solid var(--line);border-radius:10px;padding:9px 10px}
+.fa-textarea{min-height:84px}
+.fa-two{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:6px}
+.fa-two .span-2{grid-column:1/-1}
+@media (max-width: 768px){.fa-two{grid-template-columns:1fr}}
+.fa-table{width:100%;border-collapse:separate;border-spacing:0 0}
+.fa-table thead th{background:var(--brand);color:#fff;border:0;padding:10px 12px;font-weight:700}
+.fa-table tbody td{background:#fff;border-bottom:1px solid var(--line);padding:10px 12px;vertical-align:middle}
+.fa-table .no{width:64px;text-align:center}
+.fa-table .qty,.fa-table .price,.fa-table .line{text-align:right;width:140px}
+.fa-sticky{position:sticky;top:16px}
+.fa-totals .row{display:flex;justify-content:space-between;margin:6px 0}
+.fa-totals .row strong{font-weight:800}
+.fa-add{margin-top:8px}
+.fa-del{background:#fff;border:1px solid var(--line);border-radius:8px;padding:4px 10px}
+.text-right{text-align:right}
+.fa-badge{display:inline-block;background:#eef2ff;color:var(--brand);border:1px solid var(--brand);padding:2px 8px;border-radius:999px;font-size:12px}
+.stack{display:flex;flex-direction:column;gap:6px}
+.alert{border-radius:12px;padding:10px 12px;border:1px solid}
+.alert-danger{background:#fff1f2;border-color:#fecdd3;color:#991b1b}
+.alert-success{background:#ecfdf5;border-color:#a7f3d0;color:#065f46}
+</style>
 
-    {{-- หัวเรื่อง --}}
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-3xl font-bold">New Invoice</h1>
-        <p class="text-sm text-gray-500">สร้างใบกำกับภาษี/ใบแจ้งหนี้</p>
-      </div>
-      <a href="{{ route('invoices.index') }}" class="btn btn-ghost">Cancel</a>
-    </div>
+@php
+  $quotation = $quotation ?? null; // กัน null เวลาใช้ร่วมกับหน้า create
+  $number   = $nextNumber ?? $provisionalNumber ?? 'QT'.now()->format('Ymd').'-????';
+  $taxRate  = old('tax_rate', 0);
+  $rows     = old('items', [['id'=>null,'description'=>'','quantity'=>1,'unit_price'=>0]]);
+@endphp
 
-    {{-- รายละเอียด --}}
-    <div class="card space-y-4">
-      <div>
-        <label class="block text-sm font-medium">Customer Name</label>
-        <input name="customer_name" class="input mt-1" required>
-      </div>
-
-      <div class="grid sm:grid-cols-3 gap-4">
-        <div>
-          <label class="block text-sm font-medium">Issue date</label>
-          <input type="date" name="issue_date" value="{{ now()->toDateString() }}" class="input mt-1" required>
-        </div>
-        <div>
-          <label class="block text-sm font-medium">Due date</label>
-          <input type="date" name="due_date" class="input mt-1">
-        </div>
-        <div>
-          <label class="block text-sm font-medium">Tax rate (%)</label>
-          <input type="number" step="0.01" name="tax_rate" class="input mt-1" value="7">
-        </div>
-      </div>
-
-      <div>
-        <label class="block text-sm font-medium">Notes/Detail (optional)</label>
-        <textarea name="notes" rows="2" class="input mt-1"></textarea>
-      </div>
-    </div>
-
-    {{-- รายการสินค้า --}}
-    <div class="card">
-      <div class="flex items-center justify-between mb-3">
-        <h2 class="text-lg font-semibold">Items</h2>
-        <button type="button" id="add-line" class="btn btn-ghost">+ Add line</button>
-      </div>
-
-      <div class="overflow-x-auto">
-        <table class="table">
-          <thead class="border-b bg-gray-50">
-            <tr>
-              <th class="th w-12">No.</th>
-              <th class="th">Name / Description</th>
-              <th class="th w-28">Qty</th>
-              <th class="th w-24">Unit</th>
-              <th class="th w-40">Unit Price</th>
-              <th class="th w-40">Total</th>
-              <th class="th w-12"></th>
-            </tr>
-          </thead>
-          <tbody id="item-rows"></tbody>
-        </table>
-      </div>
-    </div>
-
-    {{-- ปุ่มล่างสำหรับจอเล็ก --}}
-    <div class="lg:hidden flex gap-3">
-      <button type="submit" class="btn btn-primary flex-1">Save</button>
-      <a href="{{ route('invoices.index') }}" class="btn btn-ghost">Cancel</a>
+<div class="fa-wrap">
+  <div class="fa-topbar">
+    <div class="fa-title">Create Quotation</div>
+    <div class="fa-actions">
+      <a href="{{ route('quotations.index') }}" class="fa-btn light">Close</a>
+      <button type="submit" class="fa-btn save" form="qForm">Save</button>
     </div>
   </div>
 
-  {{-- ขวา: สรุปยอด --}}
-  <aside class="card right-panel h-fit space-y-4">
-    <h3 class="text-lg font-semibold">Summary</h3>
-
-    <div class="flex items-center justify-between">
-      <span class="text-sm text-gray-600">Total</span>
-      <span id="sum-subtotal" class="font-semibold">0.00</span>
+  {{-- แสดง error/success --}}
+  @if ($errors->any())
+    <div class="alert alert-danger" role="alert">
+      <strong>กรอกไม่ครบหรือไม่ถูกต้อง:</strong>
+      <ul style="margin:6px 0 0 18px">
+        @foreach ($errors->all() as $err)
+          <li>{{ $err }}</li>
+        @endforeach
+      </ul>
     </div>
+  @endif
+  @if (session('ok'))
+    <div class="alert alert-success" role="alert">{{ session('ok') }}</div>
+  @endif
 
-    <div class="flex items-center justify-between">
-      <div class="flex items-center gap-2">
-        <span class="text-sm text-gray-600">Discount</span>
+  <form id="qForm" method="POST" action="{{ route('quotations.store') }}" autocomplete="off">
+    @csrf
+    <input type="hidden" name="customer_id" id="customer_id_hidden" value="{{ old('customer_id', optional($quotation)->customer_id) }}">
+
+    <div class="fa-grid">
+      {{-- LEFT --}}
+      <div class="fa-card fa-section">
+        <div style="display:grid;grid-template-columns:1fr;gap:12px">
+
+          {{-- ===== Customer Picker (ใหม่) ===== --}}
+          <div class="fa-two" style="align-items:end">
+            <div>
+              <label class="fa-label">ค้นหาลูกค้า</label>
+              <input id="customer_search" type="text" class="fa-input" placeholder="พิมพ์ชื่อ / เลขผู้เสียภาษี">
+            </div>
+            <div>
+              <label class="fa-label">Select Customer</label>
+              <select class="fa-select" id="customer_id_select" data-initial="{{ old('customer_id', optional($quotation)->customer_id) }}">
+                <option value="">— เลือกลูกค้า —</option>
+              </select>
+              <div class="form-text" style="font-size:12px;color:var(--muted);margin-top:6px">
+                พิมพ์ค้นหา แล้วเลือกเพื่อดึงข้อมูลมาใส่อัตโนมัติ
+              </div>
+            </div>
+            <div class="span-2" style="display:flex;justify-content:flex-end;gap:10px">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                <input type="checkbox" id="unlockFields">
+                <span class="fa-label" style="margin:0">ปลดล็อกเพื่อแก้ไขรายละเอียดลูกค้าในเอกสารนี้</span>
+              </label>
+            </div>
+          </div>
+          {{-- ===== /Customer Picker ===== --}}
+
+          <div>
+            <label class="fa-label">Customer Name</label>
+            <input id="cust_name" class="fa-input" type="text" name="customer_name"
+                   value="{{ old('customer_name', optional($quotation)->customer_name) }}">
+          </div>
+
+          <div class="fa-two">
+            <div>
+              <label class="fa-label">Reference (optional)</label>
+              <input class="fa-input" type="text" name="reference"
+                     value="{{ old('reference', optional($quotation)->reference) }}"
+                     placeholder="PO / Ref No.">
+            </div>
+            <div>
+              <label class="fa-label">Currency</label>
+              @php $cur = old('currency', optional($quotation)->currency ?? 'THB'); @endphp
+              <select class="fa-select" name="currency">
+                <option value="THB" {{ $cur==='THB'?'selected':'' }}>THB (฿)</option>
+                <option value="USD" {{ $cur==='USD'?'selected':'' }}>USD ($)</option>
+                <option value="EUR" {{ $cur==='EUR'?'selected':'' }}>EUR (€)</option>
+                <option value="JPY" {{ $cur==='JPY'?'selected':'' }}>JPY (¥)</option>
+              </select>
+            </div>
+
+            <div class="span-2">
+              <label class="fa-label">Customer Address</label>
+              <textarea id="cust_address" name="customer_address" rows="3" class="fa-textarea"
+                        placeholder="ที่อยู่ลูกค้า">{{ old('customer_address', optional($quotation)->customer_address) }}</textarea>
+            </div>
+
+            <div>
+              <label class="fa-label">Tax ID</label>
+              <input id="cust_tax" type="text" name="customer_tax_id" class="fa-input"
+                     value="{{ old('customer_tax_id', optional($quotation)->customer_tax_id) }}"
+                     placeholder="เลขประจำตัวผู้เสียภาษี">
+            </div>
+
+            <div>
+              <label class="fa-label">Branch Type</label>
+              @php $branchType = old('customer_branch_type', optional($quotation)->customer_branch_type ?? ''); @endphp
+              <select id="cust_branch_type" name="customer_branch_type" class="fa-select">
+                <option value=""       {{ $branchType==='' ? 'selected' : '' }}>—</option>
+                <option value="head"   {{ $branchType==='head' ? 'selected' : '' }}>Head Office</option>
+                <option value="branch" {{ $branchType==='branch' ? 'selected' : '' }}>Branch</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="fa-label">Branch Code</label>
+              <input id="cust_branch_code" type="text" name="customer_branch_code" class="fa-input"
+                     value="{{ old('customer_branch_code', optional($quotation)->customer_branch_code) }}"
+                     placeholder="เช่น 00000 หรือ 001">
+            </div>
+
+            <div>
+              <label class="fa-label">Salesperson</label>
+              <input type="text" name="salesperson" class="fa-input"
+                     value="{{ old('salesperson', optional($quotation)->salesperson) }}"
+                     placeholder="พนักงานขาย">
+            </div>
+
+            <div>
+              <label class="fa-label">Discount (%)</label>
+              <input type="number" min="0" step="0.01" name="discount_percent" class="fa-input"
+                     value="{{ old('discount_percent', optional($quotation)->discount_percent ?? 0) }}"
+                     oninput="recalcTotals()">
+            </div>
+
+            <div class="span-2">
+              <label class="fa-label">Detail / Notes</label>
+              <textarea class="fa-textarea" name="notes"
+                        placeholder="ระบุเงื่อนไขการขาย / การชำระเงิน / หมายเหตุ">{{ old('notes', optional($quotation)->notes) }}</textarea>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:14px">
+          <table class="fa-table" id="itemsTable">
+            <thead>
+              <tr>
+                <th class="no">No.</th>
+                <th>Name / Description</th>
+                <th class="qty">Quantity</th>
+                <th class="price">Unit Price</th>
+                <th class="line">Total</th>
+                <th style="width:48px"></th>
+              </tr>
+            </thead>
+            <tbody>
+            @foreach($rows as $i => $item)
+              @php
+                $desc = (string)($item['description'] ?? '');
+                $pos = strpos($desc, "\n");
+                $nameText  = $pos === false ? trim($desc) : trim(substr($desc,0,$pos));
+                $extraText = $pos === false ? '' : trim(substr($desc,$pos+1));
+                $qty  = (float)($item['quantity'] ?? $item['qty'] ?? 1);
+                $unit = (float)($item['unit_price'] ?? $item['price'] ?? 0);
+                $line = $qty * $unit;
+              @endphp
+              <tr>
+                <td class="no">{{ $i+1 }}</td>
+                <td>
+                  <div class="stack">
+                    <input type="hidden" class="desc-hidden" name="items[{{ $i }}][description]" value="{{ $desc }}">
+                    <input type="hidden" name="items[{{ $i }}][id]" value="{{ $item['id'] ?? '' }}">
+                    <input class="fa-input name-text" type="text" value="{{ $nameText }}" placeholder="Name" autocomplete="off" oninput="combineDesc(this)">
+                    <input class="fa-input desc-text" type="text" value="{{ $extraText }}" placeholder="Description (optional)" autocomplete="off" oninput="combineDesc(this)">
+                  </div>
+                </td>
+                <td class="qty">
+                  <input class="fa-input qty" type="number" min="0" step="1" name="items[{{ $i }}][quantity]" value="{{ $qty }}" oninput="recalcTotals()">
+                </td>
+                <td class="price">
+                  <input class="fa-input price" type="number" min="0" step="0.01" name="items[{{ $i }}][unit_price]" value="{{ $unit }}" oninput="recalcTotals()">
+                </td>
+                <td class="line line-total">{{ number_format($line,2) }}</td>
+                <td class="text-right">
+                  <button type="button" class="fa-del" onclick="this.closest('tr').remove(); renumberRows(); recalcTotals();">×</button>
+                </td>
+              </tr>
+            @endforeach
+            </tbody>
+          </table>
+
+          <div class="fa-add">
+            <button type="button" class="fa-btn light" id="addRow" onclick="addItemRow()">+ Add item</button>
+          </div>
+        </div>
       </div>
-      <div class="flex items-center gap-2">
-        <input id="discount" type="number" step="0.01" class="input w-28 text-right" value="0">
-        <span class="text-sm text-gray-600">%</span>
+
+      {{-- RIGHT --}}
+      <div class="fa-sticky">
+        <div class="fa-card fa-section fa-meta" style="margin-bottom:12px">
+          <dl>
+            <dt>Quotation No.</dt><dd>{{ $number }}</dd>
+            <dt>Status</dt><dd><span class="fa-badge">Draft</span></dd>
+
+            <dt>Date</dt>
+            <dd><input class="fa-input" type="date" name="issue_date"
+                       value="{{ old('issue_date', now()->format('Y-m-d')) }}"></dd>
+
+            <dt>Valid Until</dt>
+            <dd><input class="fa-input" type="date" name="valid_until"
+                       value="{{ old('valid_until', optional($quotation)->valid_until) }}"></dd>
+
+            <dt>Enable VAT</dt>
+            <dd>
+              @php $vatOn = old('vat_enabled', optional($quotation)->vat_enabled) ? true : false; @endphp
+              <label style="display:flex;align-items:center;gap:8px">
+                <input type="checkbox" name="vat_enabled" value="1"
+                       {{ $vatOn ? 'checked' : '' }} onchange="recalcTotals()">
+                <span class="fa-label" style="margin:0">Calculate tax from total</span>
+              </label>
+            </dd>
+
+            <dt>Tax Rate (%)</dt>
+            <dd>
+              @php $rate = (float)old('tax_rate', optional($quotation)->tax_rate ?? $taxRate); @endphp
+              <select class="fa-select" name="tax_rate" onchange="recalcTotals()">
+                <option value="0" {{ $rate==0 ? 'selected' : '' }}>0%</option>
+                <option value="3" {{ $rate==3 ? 'selected' : '' }}>3%</option>
+                <option value="7" {{ $rate==7 ? 'selected' : '' }}>7%</option>
+              </select>
+            </dd>
+          </dl>
+        </div>
+
+        <div class="fa-card fa-section fa-totals">
+          <div class="fa-title" style="font-size:16px;margin-bottom:10px;color:var(--ink)">Grand Total</div>
+          <div class="row"><span>Subtotal</span><strong id="subTotal">0.00</strong></div>
+          <div class="row"><span>Discount</span><strong id="discTotal">0.00</strong></div>
+          <div class="row"><span>Tax</span><strong id="taxTotal">0.00</strong></div>
+          <div class="row" style="border-top:1px dashed var(--line);padding-top:8px">
+            <span>Total</span><strong id="grandTotal">0.00</strong>
+          </div>
+        </div>
+
       </div>
     </div>
 
-    <div class="flex items-center justify-between">
-      <span class="text-sm text-gray-600">Total after Discount</span>
-      <span id="sum-after-discount" class="font-semibold">0.00</span>
-    </div>
+    {{-- hidden totals for validator --}}
+    <input type="hidden" name="subtotal"         id="subtotalInput"  value="0">
+    <input type="hidden" name="discount_amount"  id="discountInput"  value="0">
+    <input type="hidden" name="tax"              id="taxInput"       value="0">
+    <input type="hidden" name="total"            id="totalInput"     value="0">
 
-    <label class="flex items-center justify-between">
-      <div class="flex items-center gap-2">
-        <input id="vat-enabled" type="checkbox" class="h-4 w-4 text-indigo-600 rounded" checked>
-        <span class="text-sm text-gray-600">VAT <span id="vat-rate-label">7%</span></span>
-      </div>
-      <span id="sum-vat" class="font-semibold">0.00</span>
-    </label>
-
-    <hr>
-
-    <div class="flex items-center justify-between">
-      <span class="text-base font-semibold">Grand Total</span>
-      <span id="sum-grand" class="text-xl font-bold">0.00</span>
-    </div>
-
-    {{-- hidden fields ส่งไป backend --}}
-    <input type="hidden" name="subtotal" id="field-subtotal">
-    <input type="hidden" name="discount_percent" id="field-discount">
-    <input type="hidden" name="tax" id="field-tax">
-    <input type="hidden" name="total" id="field-total">
-
-    <button type="submit" class="btn btn-primary w-full">Save</button>
-  </aside>
-</form>
-
-@if($errors->any())
-  <div class="card mt-6 border border-rose-200 bg-rose-50">
-    <strong class="text-rose-700">มีข้อผิดพลาด:</strong>
-    <ul class="list-disc ml-5 mt-2 text-rose-700">
-      @foreach($errors->all() as $e) <li>{{ $e }}</li> @endforeach
-    </ul>
-  </div>
-@endif
-
-{{-- Template แถวรายการ (JS จะ clone) --}}
-<template id="row-template">
-  <tr class="border-b last:border-0">
-    <td class="td text-gray-500 seq"></td>
-    <td class="td">
-      <input name="" class="input item-desc" required>
-    </td>
-    <td class="td">
-      <input type="number" min="1" step="1" value="1" class="input text-right item-qty" required>
-    </td>
-    <td class="td">
-      <input class="input item-unit" placeholder="-">
-    </td>
-    <td class="td">
-      <input type="number" step="0.01" min="0" value="0" class="input text-right item-price" required>
-    </td>
-    <td class="td">
-      <input type="text" class="input text-right bg-gray-50 item-line" value="0.00" readonly>
-    </td>
-    <td class="td text-right">
-      <button type="button" class="btn btn-danger btn-sm remove-row">✕</button>
-    </td>
-  </tr>
-</template>
+  </form>
+</div>
 
 <script>
-(function(){
-  const tbody = document.getElementById('item-rows');
-  const tpl   = document.getElementById('row-template');
-  const addBtn= document.getElementById('add-line');
+(function () {
+  // ---------- URLs (ชัวร์สุด ไม่พึ่งชื่อ route) ----------
+  const OPT_URL  = "{{ url('/api/customers/options') }}";
+  const SHOW_URL = "{{ url('/api/customers') }}";
 
-  const discountEl = document.getElementById('discount');
-  const vatChk     = document.getElementById('vat-enabled');
-  const vatRateLbl = document.getElementById('vat-rate-label');
+  // ---------- CUSTOMER PICKER ----------
+  const selectBox  = document.getElementById('customer_id_select');
+  const searchBox  = document.getElementById('customer_search');
+  const hiddenId   = document.getElementById('customer_id_hidden');
+  const unlockBox  = document.getElementById('unlockFields');
 
-  const taxRateInput = document.querySelector('input[name="tax_rate"]');
+  const fields = {
+    name: document.getElementById('cust_name'),
+    address: document.getElementById('cust_address'),
+    tax: document.getElementById('cust_tax'),
+    branchType: document.getElementById('cust_branch_type'),
+    branchCode: document.getElementById('cust_branch_code'),
+  };
 
-  const sumSubtotalEl = document.getElementById('sum-subtotal');
-  const sumAfterDiscEl= document.getElementById('sum-after-discount');
-  const sumVatEl      = document.getElementById('sum-vat');
-  const sumGrandEl    = document.getElementById('sum-grand');
-
-  const fSubtotal = document.getElementById('field-subtotal');
-  const fDiscount = document.getElementById('field-discount');
-  const fTax      = document.getElementById('field-tax');
-  const fTotal    = document.getElementById('field-total');
-
-  function addRow(desc='', qty=1, unit='', price=0){
-    const clone = tpl.content.cloneNode(true);
-    const row   = clone.querySelector('tr');
-    const idx   = tbody.children.length;
-
-    const descEl  = row.querySelector('.item-desc');
-    const qtyEl   = row.querySelector('.item-qty');
-    const unitEl  = row.querySelector('.item-unit');
-    const priceEl = row.querySelector('.item-price');
-
-    // name attributes สำหรับส่งไป backend
-    descEl.setAttribute('name',  `items[${idx}][description]`);
-    qtyEl.setAttribute('name',   `items[${idx}][qty]`);
-    unitEl.setAttribute('name',  `items[${idx}][unit]`);
-    priceEl.setAttribute('name', `items[${idx}][price]`);
-
-    // hidden line_total (เก็บตอน submit)
-    const hiddenLine = document.createElement('input');
-    hiddenLine.type = 'hidden';
-    hiddenLine.name = `items[${idx}][line_total]`;
-    hiddenLine.className = 'hidden-line';
-    row.appendChild(hiddenLine);
-
-    row.querySelector('.seq').textContent = idx+1;
-    descEl.value  = desc;
-    qtyEl.value   = qty;
-    unitEl.value  = unit;
-    priceEl.value = price;
-
-    row.addEventListener('input', recalc);
-    row.querySelector('.remove-row').addEventListener('click', ()=>{
-      row.remove(); resequence(); recalc();
-    });
-
-    tbody.appendChild(row);
-    recalc();
+  function setLocked(locked){
+    // ใช้ readOnly ทั้งหมด เพื่อให้ submit ได้
+    [fields.name, fields.tax, fields.branchCode].forEach(el=>{ if(el) el.readOnly = locked; });
+    if(fields.address) fields.address.readOnly = locked;
+    // branchType เป็น select: ไม่ปิด disable เพื่อให้ส่งค่าได้
   }
+  setLocked(true);
+  unlockBox?.addEventListener('change', e=> setLocked(!e.target.checked));
 
-  function resequence(){
-    [...tbody.children].forEach((tr,i)=>{
-      tr.querySelector('.seq').textContent = i+1;
-      tr.querySelector('.item-desc').setAttribute('name', `items[${i}][description]`);
-      tr.querySelector('.item-qty').setAttribute('name',  `items[${i}][qty]`);
-      tr.querySelector('.item-unit').setAttribute('name', `items[${i}][unit]`);
-      tr.querySelector('.item-price').setAttribute('name',`items[${i}][price]`);
-      tr.querySelector('.hidden-line').setAttribute('name',`items[${i}][line_total]`);
-    });
-  }
-
-  function recalc(){
-    // ถ้ายกเลิก VAT -> ตั้ง tax_rate เป็น 0 อัตโนมัติ
-    if (!vatChk.checked) {
-      taxRateInput.value = 0;
+  async function loadCustomerOptions(q=''){
+    try {
+      const res = await fetch(`${OPT_URL}?q=${encodeURIComponent(q)}`, {
+        headers: {'X-Requested-With':'XMLHttpRequest'}
+      });
+      if(!res.ok) throw new Error('Failed to load customer options');
+      const data = await res.json();
+      // clear options (keep first)
+      [...selectBox.options].slice(1).forEach(o=>o.remove());
+      data.forEach(row=>{
+        const opt = new Option(row.text, row.id);
+        selectBox.add(opt);
+      });
+    } catch(err){
+      console.error(err);
     }
-    // อัปเดต label อัตรา VAT
-    vatRateLbl.textContent = (Number(taxRateInput.value || 0)).toFixed(0) + '%';
-
-    let subtotal = 0;
-    [...tbody.children].forEach(tr=>{
-      const qty   = Number(tr.querySelector('.item-qty').value || 0);
-      const price = Number(tr.querySelector('.item-price').value || 0);
-      const line  = qty * price;
-      tr.querySelector('.item-line').value   = line.toFixed(2);
-      tr.querySelector('.hidden-line').value = line.toFixed(2);
-      subtotal += line;
-    });
-
-    const discP = Number(discountEl.value || 0); // %
-    const afterDisc = subtotal * (1 - discP/100);
-
-    const vatRate = Number(taxRateInput.value || 0)/100;
-    const vat = vatChk.checked ? afterDisc * vatRate : 0;
-
-    const grand = afterDisc + vat;
-
-    // แสดงผล
-    sumSubtotalEl.textContent  = subtotal.toFixed(2);
-    sumAfterDiscEl.textContent = afterDisc.toFixed(2);
-    sumVatEl.textContent       = vat.toFixed(2);
-    sumGrandEl.textContent     = grand.toFixed(2);
-
-    // hidden fields ส่งไป backend
-    fSubtotal.value = subtotal.toFixed(2);
-    fDiscount.value = discP.toFixed(2);
-    fTax.value      = vat.toFixed(2);
-    fTotal.value    = grand.toFixed(2);
   }
 
-  addBtn.addEventListener('click', ()=> addRow());
-  discountEl.addEventListener('input', recalc);
-  vatChk.addEventListener('change', recalc);
-  taxRateInput.addEventListener('input', recalc);
-
-  // กันเคสไม่มีรายการ + คำนวณล่าสุดก่อน submit
-  document.getElementById('invoice-form').addEventListener('submit', (e)=>{
-    if (tbody.children.length === 0) {
-      e.preventDefault();
-      alert('กรุณาเพิ่มรายการสินค้าอย่างน้อย 1 รายการ');
-      return;
+  async function fillCustomer(id){
+    if(!id){ hiddenId.value=''; return; }
+    try {
+      const res = await fetch(`${SHOW_URL}/${id}.json`, {
+        headers: {'X-Requested-With':'XMLHttpRequest'}
+      });
+      if(!res.ok) throw new Error('Customer not found');
+      const c = await res.json();
+      hiddenId.value = c.id || '';
+      if(fields.name)        fields.name.value        = c.name || '';
+      if(fields.address)     fields.address.value     = c.address || '';
+      if(fields.tax)         fields.tax.value         = c.tax_id || '';
+      if(fields.branchType)  fields.branchType.value  = (c.is_branch ? 'branch' : 'head');
+      if(fields.branchCode)  fields.branchCode.value  = c.branch_code || '';
+    } catch(err){
+      console.error(err);
     }
-    recalc(); // อัปเดต hidden fields ให้ตรงค่าล่าสุด
+  }
+
+  // ช่องค้นหา (debounce)
+  let timer=null;
+  searchBox?.addEventListener('input', (e)=>{
+    clearTimeout(timer);
+    timer=setTimeout(()=> loadCustomerOptions(e.target.value||''), 250);
   });
 
-  // แถวแรก
-  addRow('', 1, '', 0);
+  selectBox?.addEventListener('change', e=> fillCustomer(e.target.value));
+
+  // initial
+  document.addEventListener('DOMContentLoaded', async ()=>{
+    await loadCustomerOptions('');
+    const initial = selectBox.dataset.initial;
+    if (initial) {
+      selectBox.value = initial;
+      await fillCustomer(initial);
+    }
+  });
+
+  // ---------- helpers ----------
+  function num(el){ if(!el) return 0; const v=String(el.value||'').replace(/,/g,'').trim(); const n=Number(v); return isFinite(n)?n:0; }
+  function fmt(n){ return (isNaN(n)?0:n).toFixed(2); }
+
+  // รวม Name + Description เป็น description จริง (ซ่อนใน hidden)
+  window.combineDesc = function(el){
+    const tr = el.closest('tr');
+    const name = (tr.querySelector('.name-text')?.value || '').trim();
+    const more = (tr.querySelector('.desc-text')?.value || '').trim();
+    const hidden = tr.querySelector('.desc-hidden');
+    if(hidden){ hidden.value = more ? (name + "\n" + more) : name; }
+  };
+
+  // คำนวณยอด + sync ไปที่กล่องด้านขวา + hidden
+  window.recalcTotals = function(){
+    const tbody=document.querySelector('#itemsTable tbody'); let sub=0;
+    if(tbody){
+      tbody.querySelectorAll('tr').forEach(tr=>{
+        const q=num(tr.querySelector('input.qty'));
+        const p=num(tr.querySelector('input.price'));
+        const line=q*p;
+        const cell=tr.querySelector('.line-total'); if(cell) cell.textContent=fmt(line);
+        sub+=line;
+      });
+    }
+
+    const discPct = num(document.querySelector('[name="discount_percent"]'));
+    const afterDisc = sub * (1 - discPct/100);
+    const discountAmt = sub - afterDisc;
+
+    const vatOn = document.querySelector('[name="vat_enabled"]')?.checked;
+    const rate  = Number(document.querySelector('[name="tax_rate"]')?.value || 0);
+    const tax   = vatOn ? (afterDisc * (rate/100)) : 0;
+    const total = afterDisc + tax;
+
+    document.getElementById('subTotal').textContent  = fmt(sub);
+    document.getElementById('discTotal').textContent = fmt(discountAmt);
+    document.getElementById('taxTotal').textContent  = fmt(tax);
+    document.getElementById('grandTotal').textContent= fmt(total);
+
+    document.getElementById('subtotalInput').value = fmt(sub);
+    document.getElementById('discountInput').value = fmt(discountAmt);
+    document.getElementById('taxInput').value      = fmt(tax);
+    document.getElementById('totalInput').value    = fmt(total);
+  };
+
+  // เรียงเลขบรรทัด + ซ่อม index ชื่อฟิลด์ items[i][...]
+  window.renumberRows = function(){
+    const tbody=document.querySelector('#itemsTable tbody'); if(!tbody) return;
+    [...tbody.querySelectorAll('tr')].forEach((tr,i)=>{
+      const no=tr.querySelector('.no'); if(no) no.textContent=i+1;
+      tr.querySelectorAll('input,textarea').forEach(inp=>{
+        const m = inp.name && inp.name.match(/^items\[\d+\]/);
+        if(m){ inp.name = inp.name.replace(/^items\[\d+\]/, `items[${i}]`); }
+      });
+    });
+  };
+
+  // เพิ่มแถวรายการ
+  window.addItemRow = function(){
+    const tbody=document.querySelector('#itemsTable tbody');
+    const i=tbody.querySelectorAll('tr').length;
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td class="no">${i+1}</td>
+      <td>
+        <div class="stack">
+          <input type="hidden" class="desc-hidden" name="items[${i}][description]" value="">
+          <input type="hidden" name="items[${i}][id]" value="">
+          <input class="fa-input name-text" type="text" value="" placeholder="Name" autocomplete="off" oninput="combineDesc(this)">
+          <input class="fa-input desc-text" type="text" value="" placeholder="Description (optional)" autocomplete="off" oninput="combineDesc(this)">
+        </div>
+      </td>
+      <td class="qty"><input class="fa-input qty"   type="number" min="0" step="1"    name="items[${i}][quantity]"   value="1" oninput="recalcTotals()"></td>
+      <td class="price"><input class="fa-input price" type="number" min="0" step="0.01" name="items[${i}][unit_price]" value="0" oninput="recalcTotals()"></td>
+      <td class="line line-total">0.00</td>
+      <td class="text-right"><button type="button" class="fa-del" onclick="this.closest('tr').remove(); renumberRows(); recalcTotals();">×</button></td>`;
+    tbody.appendChild(tr);
+    renumberRows(); recalcTotals();
+  };
+
+  // init
+  document.addEventListener('DOMContentLoaded', ()=>{
+    document.querySelectorAll('#itemsTable tbody tr').forEach(tr=>{
+      combineDesc(tr.querySelector('.name-text')||tr.querySelector('.desc-text'));
+    });
+    renumberRows(); recalcTotals();
+
+    document.querySelector('[name="tax_rate"]')?.addEventListener('change', recalcTotals);
+    document.querySelector('[name="vat_enabled"]')?.addEventListener('change', recalcTotals);
+
+    // กันพลาดก่อน submit: รวม description ทุกแถว + คำนวณซ้ำ
+    document.getElementById('qForm')?.addEventListener('submit', ()=>{
+      document.querySelectorAll('#itemsTable tbody tr').forEach(tr=>{
+        combineDesc(tr.querySelector('.name-text')||tr.querySelector('.desc-text'));
+      });
+      recalcTotals();
+    });
+  });
 })();
 </script>
 @endsection

@@ -2,24 +2,22 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class InvoiceItem extends Model
 {
-    use HasFactory;
-
     protected $fillable = [
-        'invoice_id',
-        'description',
-        'qty',
-        'unit',
-        'price',
-        'line_total',
+        'invoice_id','description','qty','unit','price','line_total',
+    ];
+
+    protected $casts = [
+        'qty'        => 'integer',
+        'price'      => 'float',
+        'line_total' => 'float',
     ];
 
     public function invoice()
     {
-        return $this->belongsTo(Invoice::class);
+        return $this->belongsTo(\App\Models\Invoice::class);
     }
 }

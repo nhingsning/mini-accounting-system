@@ -1,86 +1,122 @@
 @extends('layouts.app')
+@section('title', ($invoice->number ?? ('Invoice #'.$invoice->id)))
 
-@section('content')
-<div class="flex items-center justify-between mb-6">
-  <div>
-    <h1 class="text-3xl font-bold">Invoice {{ $invoice->number }}</h1>
-    <p class="text-sm text-gray-500">{{ $invoice->customer_name }}</p>
-  </div>
-  <div class="flex gap-2">
-    <a href="{{ route('invoices.edit', $invoice) }}" class="btn btn-primary">Edit</a>
-    <a href="{{ route('invoices.index') }}" class="btn btn-ghost">Back</a>
-  </div>
-</div>
+@section('body')
+<div class="layout">
+  @includeIf('partials.sidebar')
 
-@if (session('ok'))
-  <div class="card mb-4 text-emerald-700 bg-emerald-50 border border-emerald-200">
-    {{ session('ok') }}
-  </div>
-@endif
-
-<div class="grid lg:grid-cols-3 gap-6">
-  <div class="lg:col-span-2 space-y-4">
-    <div class="card">
-      <div class="grid sm:grid-cols-3 gap-4">
-        <div>
-          <div class="text-sm text-gray-600">Issue date</div>
-          <div class="font-medium">{{ \Illuminate\Support\Carbon::parse($invoice->issue_date)->format('d/m/Y') }}</div>
-        </div>
-        <div>
-          <div class="text-sm text-gray-600">Due date</div>
-          <div class="font-medium">
-            {{ $invoice->due_date ? \Illuminate\Support\Carbon::parse($invoice->due_date)->format('d/m/Y') : '-' }}
-          </div>
-        </div>
-        <div>
-          <div class="text-sm text-gray-600">Tax rate</div>
-          <div class="font-medium">{{ rtrim(rtrim(number_format($invoice->tax_rate,2), '0'), '.') }}%</div>
-        </div>
+  <main>
+    <div class="topbar">
+      <button id="menuToggle" class="btn btn-soft rounded-circle p-2 d-lg-none" aria-label="Menu">
+        <i class="bi bi-list"></i>
+      </button>
+      <h2 class="m-0">
+        {{ $invoice->number ?? ('Invoice #'.$invoice->id) }}
+        <span class="badge ms-2
+          {{ (strtolower($invoice->status ?? '')==='paid') ? 'text-bg-success' :
+             ((strtolower($invoice->status ?? '')==='cancelled') ? 'text-bg-danger' : 'text-bg-warning') }}">
+          {{ ucfirst($invoice->status ?? 'Unpaid') }}
+        </span>
+      </h2>
+      <div class="ms-auto d-flex gap-2">
+        <a href="{{ route('invoices.index') }}" class="btn btn-light"><i class="bi bi-arrow-left"></i> Back</a>
+        @if(Route::has('invoices.edit'))
+          <a href="{{ route('invoices.edit',$invoice->id) }}" class="btn btn-brand"><i class="bi bi-pencil"></i> Edit</a>
+        @endif
+        <button class="btn btn-light" onclick="window.print()"><i class="bi bi-printer"></i> Print</button>
       </div>
     </div>
 
-    <div class="card overflow-x-auto">
-      <table class="table">
-        <thead class="border-b bg-gray-50">
-          <tr>
-            <th class="th w-12">#</th>
-            <th class="th">Description</th>
-            <th class="th w-28">Qty</th>
-            <th class="th w-24">Unit</th>
-            <th class="th w-40">Unit Price</th>
-            <th class="th w-40">Total</th>
-          </tr>
-        </thead>
-        <tbody>
-          @foreach($invoice->items as $i => $it)
-            <tr class="border-b last:border-0">
-              <td class="td">{{ $i+1 }}</td>
-              <td class="td">{{ $it->description }}</td>
-              <td class="td">{{ $it->qty }}</td>
-              <td class="td">{{ $it->unit ?? '-' }}</td>
-              <td class="td text-right">{{ number_format($it->price, 2) }}</td>
-              <td class="td text-right">{{ number_format($it->line_total, 2) }}</td>
-            </tr>
-          @endforeach
-        </tbody>
-      </table>
-    </div>
-  </div>
+    <div class="container-fluid py-3">
+      <div class="row g-3">
+        <div class="col-12 col-xl-8">
+          <div class="panel">
+            <div class="panel-header"><strong>Bill To</strong></div>
+            <div class="panel-body">
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <div class="mini">Customer</div>
+                  <div class="fw-semibold">{{ $invoice->customer_name ?? '—' }}</div>
+                </div>
+                <div class="col-md-3">
+                  <div class="mini">Issue Date</div>
+                  <div class="fw-semibold">
+                    {{ \Carbon\Carbon::parse($invoice->issue_date ?? $invoice->created_at)->format('M d, Y') }}
+                  </div>
+                </div>
+                <div class="col-md-3">
+                  <div class="mini">Due Date</div>
+                  <div class="fw-semibold">
+                    {{ $invoice->due_date ? \Carbon\Carbon::parse($invoice->due_date)->format('M d, Y') : '—' }}
+                  </div>
+                </div>
+              </div>
 
-  <aside class="card space-y-2 h-fit">
-    <div class="flex items-center justify-between">
-      <span class="text-sm text-gray-600">Subtotal</span>
-      <span class="font-semibold">{{ number_format($invoice->subtotal, 2) }}</span>
+              <hr class="my-4">
+
+              <div class="table-responsive">
+                <table class="table align-middle">
+                  <thead class="table-light">
+                    <tr>
+                      <th style="width:50%">Description</th>
+                      <th class="text-end" style="width:10%">Qty</th>
+                      <th class="text-end" style="width:20%">Unit Price</th>
+                      <th class="text-end" style="width:20%">Line Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @forelse(($invoice->items ?? []) as $it)
+                      <tr>
+                        <td>{{ $it->description }}</td>
+                        <td class="text-end">{{ number_format($it->qty ?? 0, 2) }}</td>
+                        <td class="text-end">${{ number_format(($it->price ?? $it->unit_price ?? 0), 2) }}</td>
+                        <td class="text-end">${{ number_format(($it->line_total ?? (($it->qty ?? 0)*($it->price ?? $it->unit_price ?? 0))), 2) }}</td>
+                      </tr>
+                    @empty
+                      <tr><td colspan="4" class="text-center text-muted">No items.</td></tr>
+                    @endforelse
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {{-- Summary --}}
+        <div class="col-12 col-xl-4">
+          <div class="panel">
+            <div class="panel-header"><strong>Summary</strong></div>
+            <div class="panel-body">
+              @php
+                $subtotal  = round($invoice->subtotal ?? ($invoice->items? $invoice->items->sum('line_total'):0), 2);
+                $discRate  = (float)($invoice->discount_rate ?? 0);
+                $taxRate   = (float)($invoice->tax_rate ?? 0);
+                $taxValue  = round($invoice->tax ?? ($subtotal*(1-($discRate/100))*($taxRate/100)), 2);
+                $total     = round($invoice->total ?? ($subtotal*(1-($discRate/100)) + $taxValue), 2);
+              @endphp
+
+              <div class="d-flex justify-content-between py-1">
+                <span>Subtotal</span><span class="fw-semibold">${{ number_format($subtotal,2) }}</span>
+              </div>
+              <div class="d-flex justify-content-between py-1">
+                <span>Discount</span>
+                <span class="fw-semibold">{{ rtrim(rtrim(number_format($discRate,2), '0'),'.') }}%</span>
+              </div>
+              <div class="d-flex justify-content-between py-1">
+                <span>Tax ({{ rtrim(rtrim(number_format($taxRate,2), '0'),'.') }}%)</span>
+                <span class="fw-semibold">${{ number_format($taxValue,2) }}</span>
+              </div>
+              <hr>
+              <div class="d-flex justify-content-between py-1 fs-5">
+                <span>Total</span><span class="fw-bold">${{ number_format($total,2) }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="mini mt-2">Last updated: {{ $invoice->updated_at?->format('M d, Y H:i') }}</div>
+        </div>
+      </div>
     </div>
-    <div class="flex items-center justify-between">
-      <span class="text-sm text-gray-600">Tax ({{ rtrim(rtrim(number_format($invoice->tax_rate,2), '0'), '.') }}%)</span>
-      <span class="font-semibold">{{ number_format($invoice->tax, 2) }}</span>
-    </div>
-    <hr>
-    <div class="flex items-center justify-between">
-      <span class="text-base font-semibold">Grand Total</span>
-      <span class="text-xl font-bold">{{ number_format($invoice->total, 2) }}</span>
-    </div>
-  </aside>
+  </main>
 </div>
 @endsection
