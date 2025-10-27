@@ -23,12 +23,19 @@
       {{-- ค้นหาเล็กๆ (ถ้าไม่ใช้ลบฟอร์มนี้ได้) --}}
       <form class="row g-2 mb-3" method="get">
         <div class="col-md-4">
-          <input name="search" value="{{ request('search') }}" class="form-control" placeholder="Search name / tax id / tel">
+          <input name="search" value="{{ $search }}" class="form-control" placeholder="Search name / tax id / tel">
         </div>
         <div class="col">
           <button class="btn btn-outline-secondary">Search</button>
         </div>
       </form>
+
+      @if($search !== '')
+        <div class="alert alert-info d-flex justify-content-between align-items-center">
+          <span>Showing results filtered by <strong>{{ $search }}</strong></span>
+          <a href="{{ route('customers.index') }}" class="alert-link">Clear search</a>
+        </div>
+      @endif
 
       <div class="panel">
         <div class="panel-body p-0">
