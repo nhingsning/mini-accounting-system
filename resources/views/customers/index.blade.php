@@ -9,6 +9,7 @@
   <main>
     {{-- Topbar --}}
     <div class="topbar">
+      <button id="menuToggle" class="btn btn-soft rounded-circle p-2 d-lg-none" aria-label="Menu"><i class="bi bi-list"></i></button>
       <h2 class="m-0">Customer Master</h2>
       <a href="{{ route('customers.create') }}" class="btn btn-primary ms-auto">+ New</a>
     </div>
