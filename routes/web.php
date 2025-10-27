@@ -10,14 +10,14 @@ use App\Http\Controllers\CustomerController;
 
 
 // API เลือกลูกค้า/ดึงรายละเอียด (ใช้กับ Quotation/Invoice)
-Route::get('/api/customers/options', [CustomersController::class, 'options'])
+Route::get('/api/customers/options', [CustomerController::class, 'options'])
     ->name('customers.options');
-Route::get('/api/customers/{customer}.json', [CustomersController::class, 'showJson'])
+Route::get('/api/customers/{customer}.json', [CustomerController::class, 'showJson'])
     ->name('customers.json');
 // routes/web.php
 
-Route::get('/api/customers/options', [CustomersController::class,'options'])->name('customers.options');      // list สำหรับ dropdown
-Route::get('/api/customers/{customer}.json', [CustomersController::class,'showJson'])->name('customers.json'); // รายละเอียด 1 ราย
+Route::get('/api/customers/options', [CustomerController::class,'options'])->name('customers.options');      // list สำหรับ dropdown
+Route::get('/api/customers/{customer}.json', [CustomerController::class,'showJson'])->name('customers.json'); // รายละเอียด 1 ราย
 
 Route::resource('customers', CustomerController::class); // /customers, /customers/create, /customers/{id}/edit
 
