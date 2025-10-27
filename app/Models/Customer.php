@@ -6,10 +6,19 @@ use Illuminate\Database\Eloquent\Model;
 
 class Customer extends Model
 {
- protected $fillable = [
-        'name','name_hidden','address','address_hidden','tax_id','tel','fax',
-        'payment_terms','is_branch','branch_code',
-        'contact_name','contact_department','contact_position','contact_mobile','contact_email',
+    protected $fillable = [
+        'name',
+        'name_private',
+        'tax_id',
+        'tel',
+        'fax',
+        'payment_terms',
+        'address_show',
+        'address_private',
+        'office_type',
+        'branch_name',
+        'branch_code',
+        'head_office_id',
     ];
 
     public function quotations(){ return $this->hasMany(Quotation::class); }
