@@ -11,10 +11,16 @@
       <button id="menuToggle" class="btn btn-soft rounded-circle p-2 d-lg-none" aria-label="Menu">
         <i class="bi bi-list"></i>
       </button>
-      <div class="search">
+      <form class="search" action="{{ route('quotations.index') }}" method="GET" role="search">
         <i class="bi bi-search"></i>
-        <input class="form-control" placeholder="Search quotations…">
-      </div>
+        <input
+          class="form-control"
+          type="search"
+          name="q"
+          value="{{ $q ?? '' }}"
+          placeholder="Search quotations…"
+        >
+      </form>
       @if(Route::has('quotations.create'))
       <a href="{{ route('quotations.create') }}" class="btn btn-brand d-none d-sm-inline-flex">
         <i class="bi bi-plus-lg me-1"></i> New Quotation
@@ -43,7 +49,13 @@
 
       <div class="panel">
         <div class="panel-header">
-          <strong>Quotations</strong>
+          <div>
+            <strong>Quotations</strong>
+            @if(!empty($q))
+              <span class="ms-2 text-muted">Search: “{{ $q }}”</span>
+              <a href="{{ route('quotations.index') }}" class="ms-2 small">Clear</a>
+            @endif
+          </div>
           @if(Route::has('quotations.create'))
           <a href="{{ route('quotations.create') }}" class="btn btn-brand btn-sm">
             <i class="bi bi-plus-lg me-1"></i> New
@@ -133,7 +145,13 @@
     </tr>
   @empty
     <tr>
-      <td colspan="7" class="text-center text-muted py-4">No quotations yet.</td>
+      <td colspan="7" class="text-center text-muted py-4">
+        @if(!empty($q))
+          No quotations match your search for “{{ $q }}”.
+        @else
+          No quotations yet.
+        @endif
+      </td>
     </tr>
   @endforelse
 </tbody>
