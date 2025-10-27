@@ -40,8 +40,17 @@ class InvoiceController extends Controller
         return $invoice;
     }
 
+<<<<<<< HEAD
     // ===== Show (HTML view) =====
     public function show(string $key)
+=======
+    public function show(Invoice $invoice)
+    {
+        return redirect()->route('invoices.edit', $invoice);
+    }
+
+    public function store(Request $request)
+>>>>>>> 31866941e8e10f3e8320fc8f3e315afac769fadc
     {
         $invoice = $this->findByKey($key);
         return view('invoices.show', compact('invoice'));
