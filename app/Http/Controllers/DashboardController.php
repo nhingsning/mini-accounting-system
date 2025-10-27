@@ -16,6 +16,7 @@ class DashboardController extends Controller
         $today   = Carbon::today();
         $fromY   = $today->copy()->startOfYear();
         $dateCol = $this->pickDateColumn('invoices', ['issue_date','issued_at','created_at']);
+        $q       = trim((string) $request->query('q', '')) ?: null;
 
         // ===== Monthly Expenses (สรุปเป็น 12 เดือน) =====
         // NOTE: ปรับ where() ให้ตรงกับนิยาม "ค่าใช้จ่าย" ของหนิง
@@ -62,9 +63,44 @@ class DashboardController extends Controller
 
         // ===== Recent Transactions (3 รายการล่าสุด) =====
         $dateSortCol = $dateCol ?? 'created_at';
+        $recentLimit        = $q ? 10 : 3;
+        $hasInvoiceNumber   = Schema::hasColumn('invoices', 'invoice_number');
+        $hasNumber          = Schema::hasColumn('invoices', 'number');
+        $searchableDateCols = collect(['issue_date','issued_at','due_date','created_at'])
+            ->filter(fn ($c) => Schema::hasColumn('invoices', $c))
+            ->all();
+
+        $castToText = match ($driver) {
+            'mysql' => fn ($col) => "CAST($col AS CHAR)",
+            'pgsql' => fn ($col) => "CAST($col AS TEXT)",
+            default => fn ($col) => "CAST($col AS TEXT)", // sqlite & others
+        };
+
         $recent = DB::table('invoices')
             ->select('id','customer_name','total','status',$dateSortCol.' as d')
-            ->orderByDesc($dateSortCol)->limit(3)->get();
+            ->when($q, function ($query, $q) use ($hasInvoiceNumber, $hasNumber, $searchableDateCols, $castToText) {
+                $like = '%'.$q.'%';
+                $query->where(function ($sub) use ($like, $hasInvoiceNumber, $hasNumber, $searchableDateCols, $castToText) {
+                    $sub->orWhere('customer_name', 'like', $like)
+                        ->orWhereRaw($castToText('id').' like ?', [$like])
+                        ->orWhereRaw($castToText('total').' like ?', [$like]);
+
+                    if ($hasInvoiceNumber) {
+                        $sub->orWhere('invoice_number', 'like', $like);
+                    }
+
+                    if ($hasNumber) {
+                        $sub->orWhere('number', 'like', $like);
+                    }
+
+                    foreach ($searchableDateCols as $col) {
+                        $sub->orWhereRaw($castToText($col).' like ?', [$like]);
+                    }
+                });
+            })
+            ->orderByDesc($dateSortCol)
+            ->limit($recentLimit)
+            ->get();
 
         // ===== Expenses Breakdown (กลุ่มตัวอย่าง)
         // ถ้าหนิงมีคอลัมน์ category ให้ groupBy('category') ได้เลย
@@ -84,6 +120,7 @@ class DashboardController extends Controller
             'recent'      => $recent,
             'breakdown'   => $breakdown,
             'periodText'  => $fromY->format('M d, Y').' – '.$today->format('M d, Y'),
+            'q'           => $q,
         ]);
     }
 

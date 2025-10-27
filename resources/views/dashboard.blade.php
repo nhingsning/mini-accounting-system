@@ -11,10 +11,16 @@
       <button id="menuToggle" class="btn btn-soft rounded-circle p-2 d-lg-none" aria-label="Menu">
         <i class="bi bi-list"></i>
       </button>
-      <div class="search">
+      <form class="search" method="GET" action="{{ route('dashboard') }}">
         <i class="bi bi-search"></i>
-        <input class="form-control" placeholder="Search by account, date or amount">
-      </div>
+        <input
+          class="form-control"
+          name="q"
+          value="{{ $q }}"
+          placeholder="Search by account, date or amount"
+          aria-label="Search transactions"
+        >
+      </form>
       <button class="btn btn-light rounded-circle p-2"><i class="bi bi-bell"></i></button>
       <div class="avatar">AB</div>
     </div>
@@ -66,6 +72,9 @@
               <span class="mini">{{ $periodText ?? '' }}</span>
             </div>
             <div class="panel-body">
+              @if($q)
+                <p class="text-muted small mb-3">Search results for “{{ $q }}”.</p>
+              @endif
               <div class="table-responsive">
                 <table class="table align-middle">
                   <thead class="table-light">
@@ -95,7 +104,15 @@
                         </td>
                       </tr>
                     @empty
-                      <tr><td colspan="4" class="text-center text-muted">No transactions yet.</td></tr>
+                      <tr>
+                        <td colspan="4" class="text-center text-muted">
+                          @if($q)
+                            No transactions match your search.
+                          @else
+                            No transactions yet.
+                          @endif
+                        </td>
+                      </tr>
                     @endforelse
                   </tbody>
                 </table>
