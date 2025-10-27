@@ -67,4 +67,5 @@ class Invoice extends Model
                ->orWhere('total', 'like', "%{$term}%");
         });
     }
+
 }

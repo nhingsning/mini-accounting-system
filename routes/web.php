@@ -6,33 +6,34 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\QuotationController;
-use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\CustomersController;   // <-- เพิ่มอันนี้ (พหูพจน์) สำหรับ API
+use App\Http\Controllers\CustomerController;    // <-- อันนี้ (เอกพจน์) สำหรับ resource CRUD หน้าเว็บ
 
+/*
+|--------------------------------------------------------------------------
+| API: Customers (ใช้กับ Quotation/Invoice dropdown + ดึงรายละเอียด)
+|--------------------------------------------------------------------------
+*/
+Route::prefix('api')->group(function () {
+    Route::get('/customers/options', [CustomersController::class, 'options'])
+        ->name('customers.options');
+    Route::get('/customers/{customer}.json', [CustomersController::class, 'showJson'])
+        ->name('customers.json');
+});
 
-// API เลือกลูกค้า/ดึงรายละเอียด (ใช้กับ Quotation/Invoice)
-Route::get('/api/customers/options', [CustomersController::class, 'options'])
-    ->name('customers.options');
-Route::get('/api/customers/{customer}.json', [CustomersController::class, 'showJson'])
-    ->name('customers.json');
-// routes/web.php
-
-Route::get('/api/customers/options', [CustomersController::class,'options'])->name('customers.options');      // list สำหรับ dropdown
-Route::get('/api/customers/{customer}.json', [CustomersController::class,'showJson'])->name('customers.json'); // รายละเอียด 1 ราย
-
-Route::resource('customers', CustomerController::class); // /customers, /customers/create, /customers/{id}/edit
-
-
-// หน้า login หลักของเราอยู่ที่ /auth
+/*
+|--------------------------------------------------------------------------
+| Auth
+|--------------------------------------------------------------------------
+*/
 Route::get('/auth', [AuthController::class, 'show'])
     ->name('auth.page')
     ->middleware('guest');
 
-// ทำ /login (GET) เป็น alias ที่ชื่อ 'login' → redirect ไป /auth
 Route::get('/login', fn () => redirect()->route('auth.page'))
-    ->name('login')            // <<< สำคัญ: ให้ชื่อว่า login
+    ->name('login')
     ->middleware('guest');
 
-// POST login
 Route::post('/login', [AuthController::class, 'login'])
     ->name('login.attempt')
     ->middleware('guest');
@@ -60,7 +61,7 @@ Route::get('/dashboard', [DashboardController::class, 'index'])
 
 /*
 |--------------------------------------------------------------------------
-| Home → ไป Invoices (เลือกตัวเดียวพอ)
+| Home
 |--------------------------------------------------------------------------
 */
 Route::get('/', fn () => redirect()->route('invoices.index'))
@@ -68,17 +69,19 @@ Route::get('/', fn () => redirect()->route('invoices.index'))
 
 /*
 |--------------------------------------------------------------------------
-| Quotations / Invoices
+| Quotations / Invoices / Customers (หน้าเว็บ)
 |--------------------------------------------------------------------------
 */
 Route::patch('/quotations/{quotation}/autosave', [QuotationController::class, 'autosave'])
-    ->name('quotations.autosave'); // ใช้ {quotation} ให้ตรงกับ model binding
+    ->name('quotations.autosave');
 
 Route::resource('invoices', InvoiceController::class)
     ->only(['index','create','store','show','edit','update','destroy']);
 
 Route::resource('quotations', QuotationController::class)
     ->only(['index','create','store','show','edit','update','destroy']);
+
+Route::resource('customers', CustomerController::class); // /customers, /customers/create, /customers/{id}/edit
 
 /*
 |--------------------------------------------------------------------------
@@ -92,3 +95,8 @@ Route::redirect('/quotes/{quotation}/edit', '/quotations/{quotation}/edit');
 Route::redirect('/quotes/{quotation}/pdf', '/quotations/{quotation}/pdf')->name('quotes.pdf');
 Route::redirect('/quotes/{quotation}/send', '/quotations/{quotation}/send')->name('quotes.send');
 Route::redirect('/quotes/{quotation}/convert', '/quotations/{quotation}/convert')->name('quotes.convert');
+
+Route::get('/invoices',                [InvoiceController::class, 'index'])->name('invoices.index');
+Route::get('/invoices/{invoiceKey}',   [InvoiceController::class, 'show'])->name('invoices.show');
+Route::get('/invoices/{invoiceKey}/edit', [InvoiceController::class, 'edit'])->name('invoices.edit');
+Route::put('/invoices/{invoiceKey}',   [InvoiceController::class, 'update'])->name('invoices.update');
