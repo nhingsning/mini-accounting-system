@@ -39,18 +39,26 @@ class Invoice extends Model
         return $this->belongsTo(Customer::class);
     }
 
-    // ใช้เลขเอกสาร (หรือ id) สำหรับ route model binding
+    /**
+     * Use the invoice number as the primary route binding key.
+     */
     public function getRouteKeyName(): string
     {
         return 'number';
     }
 
+    /**
+     * Allow legacy links that still reference the numeric id to keep working.
+     */
     public function resolveRouteBinding($value, $field = null)
     {
-        if ($field) {
+        if ($field !== null) {
             return parent::resolveRouteBinding($value, $field);
         }
-        return $this->where('number', $value)->orWhere('id', $value)->firstOrFail();
+
+        return $this->where('number', $value)
+            ->orWhere('id', $value)
+            ->firstOrFail();
     }
 
     // ค้นหาแบบง่าย ๆ
