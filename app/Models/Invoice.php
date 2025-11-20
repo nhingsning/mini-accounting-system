@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Invoice extends Model
 {
     protected $fillable = [
-        'number',
+        'number', 'quotation_id',
         'customer_id', 'customer_name', 'customer_address', 'customer_tax_id',
         'customer_branch_type', 'customer_branch_code',
         'issue_date', 'due_date',
@@ -37,6 +37,11 @@ class Invoice extends Model
     public function customer(): BelongsTo
     {
         return $this->belongsTo(Customer::class);
+    }
+
+    public function quotation(): BelongsTo
+    {
+        return $this->belongsTo(Quotation::class);
     }
 
     // ใช้เลขเอกสาร (หรือ id) สำหรับ route model binding

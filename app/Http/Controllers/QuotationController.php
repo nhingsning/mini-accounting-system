@@ -508,6 +508,9 @@ class QuotationController extends Controller
             // หัวใบแจ้งหนี้
             $inv = new Invoice();
             $inv->number        = $invNo;
+            if (Schema::hasColumn('invoices', 'quotation_id')) {
+                $inv->quotation_id = $q->id;
+            }
             $inv->customer_name = (string) $q->customer_name;
             $inv->issue_date    = ($q->issue_date ?: now())->toDateString();
             $inv->due_date      = \Illuminate\Support\Carbon::parse($inv->issue_date)->addDays(14)->toDateString();
