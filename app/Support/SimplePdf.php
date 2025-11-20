@@ -69,14 +69,17 @@ class SimplePdf
             $pdf .= ($i+1).' 0 obj\n'.$obj."\nendobj\n";
         }
 
+        $xrefOffset = strlen($pdf);
+
         $xref = "xref\n0 ".(count($objects)+1)."\n";
         $xref .= "0000000000 65535 f \n";
         foreach ($offsets as $off) {
             $xref .= sprintf("%010d 00000 n \n", $off);
         }
+
         $pdf .= $xref;
         $pdf .= "trailer\n<< /Size ".(count($objects)+1)." /Root 1 0 R >>\n";
-        $pdf .= "startxref\n".strlen($pdf)."\n%%EOF";
+        $pdf .= "startxref\n".$xrefOffset."\n%%EOF\n";
 
         return $pdf;
     }
