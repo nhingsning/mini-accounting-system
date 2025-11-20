@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Quotation;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
-use App\Models\Invoice as PurchaseOrder;
+use App\Models\PurchaseOrder;
 use App\Models\QuotationLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -280,7 +280,7 @@ class QuotationController extends Controller
         $po = $this->inlineCreatePurchaseOrder($quotation);
         if ($po) {
             $this->logAction($quotation, 'converted_to_po', 'Converted to PO '.$po->number);
-            return redirect()->route('invoices.show', $po)->with('ok','สร้าง PO จาก Quotation แล้ว');
+            return redirect()->route('po.show', $po)->with('ok','สร้าง PO จาก Quotation แล้ว');
         }
         return back()->with('error','ไม่สามารถสร้าง PO ได้');
     }

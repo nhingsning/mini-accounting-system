@@ -8,12 +8,16 @@
     </a>
     <a class="nav-link {{ request()->routeIs('invoices.*') ? 'active' : '' }}" href="{{ route('invoices.index') }}">
       <i class="bi bi-receipt"></i>Invoices
-<a class="nav-link" href="{{ route('quotations.index') }}">
-  <i class="bi bi-file-earmark-text"></i> Quotation
-</a>
-  <a class="nav-link {{ request()->is('customers*') ? 'active' : '' }}" href="{{ route('customers.index') }}">
-    <i class="bi bi-people"></i> Customers
-  </a>
+    </a>
+    <a class="nav-link {{ request()->routeIs('po.*') ? 'active' : '' }}" href="{{ route('po.index') }}">
+      <i class="bi bi-file-earmark-arrow-down"></i>PO
+    </a>
+    <a class="nav-link {{ request()->routeIs('quotations.*') ? 'active' : '' }}" href="{{ route('quotations.index') }}">
+      <i class="bi bi-file-earmark-text"></i>Quotation
+    </a>
+    <a class="nav-link {{ request()->is('customers*') ? 'active' : '' }}" href="{{ route('customers.index') }}">
+      <i class="bi bi-people"></i> Customers
+    </a>
     <a class="nav-link" href="#"><i class="bi bi-bank"></i>Banks</a>
     <a class="nav-link" href="#"><i class="bi bi-cash-stack"></i>Payroll</a>
     <a class="nav-link" href="#"><i class="bi bi-graph-up"></i>Reports</a>

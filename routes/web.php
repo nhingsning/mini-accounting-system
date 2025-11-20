@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\QuotationController;
 use App\Http\Controllers\CustomersController;   // <-- เพิ่มอันนี้ (พหูพจน์) สำหรับ API
 use App\Http\Controllers\CustomerController;    // <-- อันนี้ (เอกพจน์) สำหรับ resource CRUD หน้าเว็บ
@@ -78,6 +79,9 @@ Route::get('/quotations/{quotation}/pdf', [QuotationController::class, 'pdf'])
     ->name('quotations.pdf');
 
 Route::resource('invoices', InvoiceController::class)
+    ->only(['index','create','store','show','edit','update','destroy']);
+
+Route::resource('po', PurchaseOrderController::class)
     ->only(['index','create','store','show','edit','update','destroy']);
 
 Route::resource('quotations', QuotationController::class)
