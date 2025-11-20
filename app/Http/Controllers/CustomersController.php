@@ -10,11 +10,16 @@ class CustomersController extends Controller
     // /api/customers/options => สำหรับ dropdown
     public function options(Request $request)
     {
-        $rows = DB::table('customers')
-            ->select('id','name')
-            ->orderBy('name')
-            ->limit(100)
-            ->get();
+        $query = DB::table('customers')
+            ->select('id', 'name as text')
+            ->orderBy('name');
+
+        if ($request->filled('q')) {
+            $q = $request->get('q');
+            $query->where('name', 'like', "%{$q}%");
+        }
+
+        $rows = $query->limit(100)->get();
 
         return response()->json($rows);
     }

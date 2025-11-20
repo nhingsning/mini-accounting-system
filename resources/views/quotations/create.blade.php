@@ -3,43 +3,47 @@
 @section('body')
 
 <style>
-:root{--brand:#2B4A72;--ink:#0f172a;--muted:#64748b;--line:#e5e7eb;--bg:#f8fafc;--card:#ffffff}
-body{background:var(--bg)}
-.fa-wrap{max-width:1160px;margin:0 auto;padding:20px}
-.fa-topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
-.fa-title{font-size:20px;font-weight:700;color:var(--ink)}
-.fa-actions{display:flex;gap:8px}
-.fa-btn{display:inline-flex;align-items:center;gap:6px;border-radius:10px;border:1px solid var(--line);padding:8px 12px;text-decoration:none;font-weight:600}
-.fa-btn.save{background:var(--brand);color:#fff;border-color:var(--brand)}
+:root{--brand:#4338ca;--ink:#0f172a;--muted:#6b7280;--line:#e5e7eb;--bg:#f6f7fb;--card:#ffffff}
+body{background:var(--bg);color:var(--ink)}
+.fa-wrap{max-width:1180px;margin:0 auto;padding:18px}
+.fa-topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:12px}
+.fa-title{font-size:22px;font-weight:700;color:var(--ink);letter-spacing:-0.02em}
+.fa-actions{display:flex;gap:10px;flex-wrap:wrap}
+.fa-btn{display:inline-flex;align-items:center;gap:6px;border-radius:12px;border:1px solid var(--line);padding:10px 14px;text-decoration:none;font-weight:600;box-shadow:0 8px 20px -15px rgba(15,23,42,0.35);transition:all .15s ease}
+.fa-btn.save{background:var(--brand);color:#fff;border-color:var(--brand);box-shadow:0 10px 25px -18px rgba(67,56,202,0.8)}
 .fa-btn.light{background:#fff;color:var(--ink)}
-.fa-card{background:var(--card);border:1px solid var(--line);border-radius:14px}
-.fa-grid{display:grid;grid-template-columns:1fr 340px;gap:16px}
-@media (max-width: 992px){.fa-grid{grid-template-columns:1fr}}
-.fa-section{padding:16px}
-.fa-meta dl{display:grid;grid-template-columns:130px 1fr;gap:8px 12px;margin:0}
-.fa-meta dt{color:var(--muted)} .fa-meta dd{margin:0;font-weight:700}
-.fa-label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
-.fa-input,.fa-textarea,.fa-select{width:100%;background:#fff;border:1px solid var(--line);border-radius:10px;padding:9px 10px}
-.fa-textarea{min-height:84px}
-.fa-two{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:6px}
+.fa-btn:hover{transform:translateY(-1px);box-shadow:0 12px 28px -20px rgba(15,23,42,0.4)}
+.fa-card{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:0 16px 40px -30px rgba(15,23,42,0.35)}
+.fa-grid{display:grid;grid-template-columns:1fr 320px;gap:18px}
+@media (max-width: 1024px){.fa-grid{grid-template-columns:1fr}}
+.fa-section{padding:18px 18px 20px}
+.fa-section .section-title{font-weight:700;color:var(--ink);font-size:15px;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.fa-meta dl{display:grid;grid-template-columns:130px 1fr;gap:10px 12px;margin:0}
+.fa-meta dt{color:var(--muted);font-weight:600} .fa-meta dd{margin:0;font-weight:700}
+.fa-label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.02em}
+.fa-input,.fa-textarea,.fa-select{width:100%;background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:14px;transition:border-color .12s,box-shadow .12s}
+.fa-input:focus,.fa-textarea:focus,.fa-select:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px rgba(67,56,202,.08)}
+.fa-textarea{min-height:92px}
+.fa-two{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:6px}
 .fa-two .span-2{grid-column:1/-1}
 @media (max-width: 768px){.fa-two{grid-template-columns:1fr}}
-.fa-table{width:100%;border-collapse:separate;border-spacing:0 0}
-.fa-table thead th{background:var(--brand);color:#fff;border:0;padding:10px 12px;font-weight:700}
+.fa-table{width:100%;border-collapse:separate;border-spacing:0 0;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.fa-table thead th{background:#eef2ff;color:#1f2937;border:0;padding:10px 12px;font-weight:700}
 .fa-table tbody td{background:#fff;border-bottom:1px solid var(--line);padding:10px 12px;vertical-align:middle}
-.fa-table .no{width:64px;text-align:center}
+.fa-table .no{width:64px;text-align:center;color:var(--muted)}
 .fa-table .qty,.fa-table .price,.fa-table .line{text-align:right;width:140px}
-.fa-sticky{position:sticky;top:16px}
-.fa-totals .row{display:flex;justify-content:space-between;margin:6px 0}
-.fa-totals .row strong{font-weight:800}
-.fa-add{margin-top:8px}
-.fa-del{background:#fff;border:1px solid var(--line);border-radius:8px;padding:4px 10px}
+.fa-sticky{position:sticky;top:12px;display:flex;flex-direction:column;gap:12px}
+.fa-totals .row{display:flex;justify-content:space-between;margin:7px 0;font-size:14px}
+.fa-totals .row strong{font-weight:800;color:var(--ink)}
+.fa-add{margin-top:10px}
+.fa-del{background:#fff;border:1px solid var(--line);border-radius:10px;padding:6px 12px;color:#ef4444;box-shadow:0 6px 16px -14px rgba(15,23,42,0.5)}
 .text-right{text-align:right}
-.fa-badge{display:inline-block;background:#eef2ff;color:var(--brand);border:1px solid var(--brand);padding:2px 8px;border-radius:999px;font-size:12px}
-.stack{display:flex;flex-direction:column;gap:6px}
-.alert{border-radius:12px;padding:10px 12px;border:1px solid}
+.fa-badge{display:inline-block;background:#eef2ff;color:var(--brand);border:1px solid var(--brand);padding:2px 10px;border-radius:999px;font-size:12px;font-weight:700}
+.stack{display:flex;flex-direction:column;gap:8px}
+.alert{border-radius:12px;padding:10px 12px;border:1px solid;margin-bottom:12px}
 .alert-danger{background:#fff1f2;border-color:#fecdd3;color:#991b1b}
 .alert-success{background:#ecfdf5;border-color:#a7f3d0;color:#065f46}
+.helper{color:var(--muted);font-size:12px;margin-top:4px}
 </style>
 
 @php
@@ -80,6 +84,7 @@ body{background:var(--bg)}
     <div class="fa-grid">
       {{-- LEFT --}}
       <div class="fa-card fa-section">
+        <div class="section-title">Customer &amp; Document Details</div>
         <div style="display:grid;grid-template-columns:1fr;gap:12px">
 
           {{-- ===== Customer Picker (ใหม่) ===== --}}
@@ -87,15 +92,14 @@ body{background:var(--bg)}
             <div>
               <label class="fa-label">ค้นหาลูกค้า</label>
               <input id="customer_search" type="text" class="fa-input" placeholder="พิมพ์ชื่อ / เลขผู้เสียภาษี">
+              <div class="helper">เริ่มพิมพ์เพื่อค้นหาและโหลดรายชื่อลูกค้า</div>
             </div>
             <div>
               <label class="fa-label">Select Customer</label>
               <select class="fa-select" id="customer_id_select" data-initial="{{ old('customer_id', optional($quotation)->customer_id) }}">
                 <option value="">— เลือกลูกค้า —</option>
               </select>
-              <div class="form-text" style="font-size:12px;color:var(--muted);margin-top:6px">
-                พิมพ์ค้นหา แล้วเลือกเพื่อดึงข้อมูลมาใส่อัตโนมัติ
-              </div>
+              <div class="helper">เลือกแล้วข้อมูลลูกค้าจะถูกเติมให้อัตโนมัติ</div>
             </div>
             <div class="span-2" style="display:flex;justify-content:flex-end;gap:10px">
               <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
@@ -182,7 +186,8 @@ body{background:var(--bg)}
           </div>
         </div>
 
-        <div style="margin-top:14px">
+        <div class="section-title" style="margin-top:10px">Line Items</div>
+        <div style="margin-top:10px">
           <table class="fa-table" id="itemsTable">
             <thead>
               <tr>
@@ -239,6 +244,7 @@ body{background:var(--bg)}
       {{-- RIGHT --}}
       <div class="fa-sticky">
         <div class="fa-card fa-section fa-meta" style="margin-bottom:12px">
+          <div class="section-title">Document Info</div>
           <dl>
             <dt>Quotation No.</dt><dd>{{ $number }}</dd>
             <dt>Status</dt><dd><span class="fa-badge">Draft</span></dd>
@@ -274,7 +280,7 @@ body{background:var(--bg)}
         </div>
 
         <div class="fa-card fa-section fa-totals">
-          <div class="fa-title" style="font-size:16px;margin-bottom:10px;color:var(--ink)">Grand Total</div>
+          <div class="section-title" style="margin-bottom:4px">Summary</div>
           <div class="row"><span>Subtotal</span><strong id="subTotal">0.00</strong></div>
           <div class="row"><span>Discount</span><strong id="discTotal">0.00</strong></div>
           <div class="row"><span>Tax</span><strong id="taxTotal">0.00</strong></div>
