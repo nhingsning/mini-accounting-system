@@ -20,6 +20,12 @@
         <div class="panel-header"><strong>Invoice details</strong></div>
         <div class="panel-body">
           <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Invoice No. (optional)</label>
+              <input name="number" class="form-control" value="{{ old('number') }}" placeholder="ปล่อยว่างให้ออกเลขเอง">
+              <div class="form-text">แก้เลข INV ได้ตามต้องการ หรือเว้นว่างให้ระบบออกให้อัตโนมัติ</div>
+            </div>
+
             {{-- ===== Customer Picker ===== --}}
             <div class="col-md-8">
               <label class="form-label">Select Customer</label>

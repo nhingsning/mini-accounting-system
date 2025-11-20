@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Invoice;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class InvoiceController extends Controller
 {
@@ -50,7 +51,7 @@ class InvoiceController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'number'               => 'nullable|string|max:255',
+            'number'               => ['nullable','string','max:255', Rule::unique('invoices','number')],
             'customer_id'          => 'nullable|integer|exists:customers,id',
             'customer_name'        => 'required|string|max:255',
             'customer_address'     => 'nullable|string',
@@ -100,6 +101,7 @@ class InvoiceController extends Controller
         $invoice = $this->findByKey($key);
 
         $data = $request->validate([
+            'number'        => ['nullable','string','max:255', Rule::unique('invoices','number')->ignore($invoice->id)],
             'customer_name' => 'required|string|max:255',
             'issue_date'    => 'nullable|date',
             'status'        => 'required|string|max:50',

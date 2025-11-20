@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\PurchaseOrder;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class PurchaseOrderController extends Controller
 {
@@ -41,7 +42,7 @@ class PurchaseOrderController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'number'               => 'nullable|string|max:255',
+            'number'               => ['nullable','string','max:255', Rule::unique('invoices','number')],
             'customer_id'          => 'nullable|integer|exists:customers,id',
             'customer_name'        => 'required|string|max:255',
             'customer_address'     => 'nullable|string',
@@ -89,6 +90,7 @@ class PurchaseOrderController extends Controller
         $po = $this->findByKey($key);
 
         $data = $request->validate([
+            'number'        => ['nullable','string','max:255', Rule::unique('invoices','number')->ignore($po->id)],
             'customer_name' => 'required|string|max:255',
             'issue_date'    => 'nullable|date',
             'status'        => 'required|string|max:50',

@@ -28,11 +28,16 @@
 
         <div class="panel-header d-flex align-items-center">
           <strong>PO details</strong>
-          <div class="ms-auto text-muted">No. <span class="fw-600">{{ $po->number }}</span></div>
         </div>
 
         <div class="panel-body">
           <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">PO No.</label>
+              <input name="number" class="form-control" value="{{ old('number', $po->number) }}" placeholder="แก้เลข PO ได้ที่นี่">
+              <div class="form-text">ต้องการเปลี่ยนเลข PO สามารถกรอกใหม่หรือปล่อยว่างให้ใช้เลขเดิม</div>
+            </div>
+
             {{-- ===== Customer Picker ===== --}}
             <div class="col-md-8">
               <label class="form-label">Select Customer</label>

@@ -28,11 +28,16 @@
 
         <div class="panel-header d-flex align-items-center">
           <strong>Invoice details</strong>
-          <div class="ms-auto text-muted">No. <span class="fw-600">{{ $invoice->number }}</span></div>
         </div>
 
         <div class="panel-body">
           <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Invoice No.</label>
+              <input name="number" class="form-control" value="{{ old('number', $invoice->number) }}" placeholder="แก้เลขได้ตามต้องการ">
+              <div class="form-text">ปรับเลข INV ได้ หรือปล่อยว่างเพื่อใช้เลขเดิม</div>
+            </div>
+
             {{-- ===== Customer Picker ===== --}}
             <div class="col-md-8">
               <label class="form-label">Select Customer</label>

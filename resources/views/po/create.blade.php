@@ -20,6 +20,12 @@
         <div class="panel-header"><strong>PO details</strong></div>
         <div class="panel-body">
           <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">PO No. (optional)</label>
+              <input name="number" class="form-control" value="{{ old('number') }}" placeholder="ปล่อยว่างให้ออกเลข PO อัตโนมัติ">
+              <div class="form-text">ปรับเลข PO ได้เอง หากเว้นว่างระบบจะรัน POYYYY-MM-####</div>
+            </div>
+
             {{-- ===== Customer Picker ===== --}}
             <div class="col-md-8">
               <label class="form-label">Select Customer</label>

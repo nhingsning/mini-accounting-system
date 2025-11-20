@@ -348,7 +348,12 @@ body{background:var(--bg);color:var(--ink)}
         <div class="fa-card fa-section fa-meta" style="margin-bottom:12px">
           <div class="section-title">Document Info</div>
           <dl>
-            <dt>Quotation No.</dt><dd><strong>{{ $number }}</strong></dd>
+            <dt>Quotation No.</dt>
+            <dd>
+              <input class="fa-input" type="text" name="number"
+                     value="{{ old('number', $number) }}" placeholder="เว้นว่างให้ระบบออกเลขอัตโนมัติ">
+              <div class="helper">ปรับเลขได้เอง หรือเว้นว่างให้ระบบรัน QTYYYY-MM-#### ให้อัตโนมัติ</div>
+            </dd>
             <dt>Status</dt><dd><span class="fa-badge" id="statusBadge">{{ ucfirst(old('status','draft')) }}</span></dd>
 
             <dt>Date</dt>

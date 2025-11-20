@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\Rule;
 use App\Support\SimplePdf;
 use App\Services\InvoiceFromQuotation;
 use Dompdf\Dompdf;
@@ -109,7 +110,7 @@ class QuotationController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'number'               => ['prohibited'], // ออกเลขใน Model เอง
+            'number'               => ['nullable','string','max:50','unique:quotations,number'],
             'customer_id'          => ['nullable','integer','exists:customers,id'],
             'customer_name'        => ['required','string','max:255'],
             'issue_date'           => ['nullable','date'],
@@ -151,6 +152,9 @@ class QuotationController extends Controller
             'customer_name' => $data['customer_name'],
             'status'        => $data['status'] ?? 'draft',
         ];
+        if (!empty($data['number'])) {
+            $payload['number'] = $data['number'];
+        }
         foreach ([
             'issue_date','valid_until','currency','customer_address','customer_tax_id','customer_id',
             'customer_branch_type','customer_branch_code','salesperson','reference','payment_terms',
@@ -357,7 +361,7 @@ class QuotationController extends Controller
     public function update(Request $request, Quotation $quotation)
     {
         $data = $request->validate([
-            'number'               => ['prohibited'],
+            'number'               => ['nullable','string','max:50', Rule::unique('quotations','number')->ignore($quotation->id)],
             'customer_id'          => ['nullable','integer','exists:customers,id'],
             'customer_name'        => ['required','string','max:255'],
             'issue_date'           => ['required','date'],
@@ -399,6 +403,9 @@ class QuotationController extends Controller
                 'issue_date'    => $data['issue_date'],
                 'status'        => $data['status'],
             ];
+            if (!empty($data['number'])) {
+                $payload['number'] = $data['number'];
+            }
             foreach ([
                 'valid_until','currency','customer_address','customer_tax_id','customer_id',
                 'customer_branch_type','customer_branch_code','salesperson','reference','payment_terms',
