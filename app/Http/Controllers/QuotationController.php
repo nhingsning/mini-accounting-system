@@ -359,16 +359,22 @@ class QuotationController extends Controller
                     ->filter(fn($r) => $r['description'] !== '' || $r['qty'] > 0 || $r['price'] > 0 || $r['discount'] > 0);
 
                 foreach ($rows as $row) {
-                    $quotation->items()->create([
+                    $lineTotal = round(($row['qty'] * $row['price']) - $row['discount'], 2);
+                    $attributes = [
                         'description' => $row['description'],
                         'qty'         => $row['qty'],
                         'quantity'    => $row['qty'],
                         'unit_price'  => $row['price'],
                         'price'       => $row['price'],
-                        'discount'    => $row['discount'],
-                        'line_total'  => round(($row['qty'] * $row['price']) - $row['discount'], 2),
+                        'line_total'  => $lineTotal,
                         'unit'        => $row['unit'],
-                    ]);
+                    ];
+
+                    if (Schema::hasColumn('quote_items', 'discount')) {
+                        $attributes['discount'] = $row['discount'];
+                    }
+
+                    $quotation->items()->create($attributes);
                 }
             }
 
