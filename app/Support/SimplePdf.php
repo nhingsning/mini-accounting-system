@@ -46,27 +46,24 @@ class SimplePdf
         $lines[] = 'Total: '.number_format($total, 2);
 
         // --- Build a minimal PDF document ---
-        $content = [];
-        $y = 780;
+        $stream = "BT\n/F1 12 Tf\n50 780 Td\n";
         foreach ($lines as $line) {
-            $escaped = self::escapeText($line);
-            $content[] = sprintf("BT /F1 12 Tf 50 %d Td (%s) Tj ET", $y, $escaped);
-            $y -= 18;
+            $stream .= '('.self::escapeText($line).") Tj\n0 -18 Td\n";
         }
-        $stream = implode("\n", $content);
+        $stream .= "ET\n";
 
         $objects = [];
         $objects[] = '<< /Type /Catalog /Pages 2 0 R >>';
         $objects[] = '<< /Type /Pages /Kids [3 0 R] /Count 1 >>';
         $objects[] = '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>';
-        $objects[] = "<< /Length ".strlen($stream)." >>\nstream\n".$stream."\nendstream";
+        $objects[] = "<< /Length ".strlen($stream)." >>\nstream\n".$stream."endstream\n";
         $objects[] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>';
 
         $pdf = "%PDF-1.4\n";
         $offsets = [];
         foreach ($objects as $i => $obj) {
             $offsets[$i] = strlen($pdf);
-            $pdf .= ($i + 1).' 0 obj\n'.$obj."\nendobj\n";
+            $pdf .= ($i + 1).' 0 obj\n'.$obj."endobj\n";
         }
 
         $xrefOffset = strlen($pdf);
