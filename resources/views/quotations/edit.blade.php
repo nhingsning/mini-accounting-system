@@ -20,11 +20,11 @@
         </div>
       @endif
 
-      <form method="POST" action="{{ route('quotations.update', $quotation) }}" autocomplete="off">
+        <form method="POST" action="{{ route('quotations.update', $quotation) }}" autocomplete="off" enctype="multipart/form-data">
         @csrf
         @method('PUT')
         {{-- เก็บ customer_id ไว้ส่งไปกับฟอร์ม --}}
-        <input type="hidden" name="customer_id" id="customer_id_hidden" value="{{ old('customer_id', $quotation->customer_id) }}">
+          <input type="hidden" name="customer_id" id="customer_id_hidden" value="{{ old('customer_id', $quotation->customer_id) }}">
 
         <div class="row g-3">
           {{-- ซ้าย: รายละเอียด + รายการ --}}
@@ -45,6 +45,11 @@
                     <select id="customer_id_select" class="form-select" data-initial="{{ old('customer_id', $quotation->customer_id) }}"
                             data-initial-name="{{ old('customer_name', $quotation->customer_name) }}">
                       <option value="">— เลือกลูกค้า —</option>
+                      @if(old('customer_id', $quotation->customer_id))
+                        <option value="{{ old('customer_id', $quotation->customer_id) }}" selected>
+                          {{ old('customer_name', $quotation->customer_name) ?? 'ลูกค้าปัจจุบัน' }}
+                        </option>
+                      @endif
                     </select>
                   </div>
                   <div class="col-12 d-flex justify-content-end">
@@ -267,15 +272,25 @@ const SHOW_URL = "{{ url('/api/customers') }}";
 
   async function fillCustomer(id){
     if(!id){ hiddenId.value=''; return; }
-    const res = await fetch(`${SHOW_URL}/${id}.json`, { headers: {'X-Requested-With':'XMLHttpRequest'} });
-    if(!res.ok) return;
-    const c = await res.json();
-    hiddenId.value = c.id || '';
-    if(fields.name)        fields.name.value        = c.name || '';
-    if(fields.address)     fields.address.value     = c.address || '';
-    if(fields.tax)         fields.tax.value         = c.tax_id || '';
-    if(fields.branchType)  fields.branchType.value  = (c.is_branch ? 'branch' : 'head');
-    if(fields.branchCode)  fields.branchCode.value  = c.branch_code || '';
+    try {
+      const res = await fetch(`${SHOW_URL}/${id}.json`, { headers: {'X-Requested-With':'XMLHttpRequest'} });
+      if(!res.ok) throw new Error('Customer not found');
+      const payload = await res.json();
+      const c = payload.customer || {};
+      const contact = payload.contact || {};
+      hiddenId.value = c.id || '';
+      if(fields.name)        fields.name.value        = c.name || '';
+      if(fields.address)     fields.address.value     = c.address_show || c.address || '';
+      if(fields.tax)         fields.tax.value         = c.tax_id || '';
+      if(fields.branchType)  fields.branchType.value  = (c.office_type || (c.is_branch ? 'branch' : 'head') || '-');
+      if(fields.branchCode)  fields.branchCode.value  = c.branch_code || '';
+      if(fields.contactName) fields.contactName.value = contact.contact_name || c.contact_name || '';
+      if(fields.contactEmail)fields.contactEmail.value= contact.email || c.contact_email || '';
+      if(fields.contactPhone)fields.contactPhone.value= contact.mobile || c.contact_phone || '';
+      if(fields.paymentTerms)fields.paymentTerms.value= c.payment_terms || '';
+    } catch(err){
+      console.error(err);
+    }
   }
 
   // search debounce
