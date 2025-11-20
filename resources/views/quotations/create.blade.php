@@ -93,17 +93,12 @@ body{background:var(--bg);color:var(--ink)}
 
           {{-- ===== Customer Picker (ใหม่) ===== --}}
           <div class="fa-two" style="align-items:end">
-            <div>
-              <label class="fa-label">ค้นหาลูกค้า</label>
-              <input id="customer_search" type="text" class="fa-input" placeholder="พิมพ์ชื่อ / เลขผู้เสียภาษี">
-              <div class="helper">เริ่มพิมพ์เพื่อค้นหาและโหลดรายชื่อลูกค้า</div>
-            </div>
-            <div>
+            <div class="span-2">
               <label class="fa-label">Select Customer</label>
               <select class="fa-select" id="customer_id_select" data-initial="{{ old('customer_id', optional($quotation)->customer_id) }}">
                 <option value="">— เลือกลูกค้า —</option>
               </select>
-              <div class="helper">เลือกแล้วข้อมูลลูกค้าจะถูกเติมให้อัตโนมัติ</div>
+              <div class="helper">เลือกจากรายชื่อลูกค้าที่มีและระบบจะเติมข้อมูลอัตโนมัติ</div>
             </div>
             <div class="span-2" style="display:flex;justify-content:flex-end;gap:10px">
               <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
@@ -424,7 +419,6 @@ body{background:var(--bg);color:var(--ink)}
 
   // ---------- CUSTOMER PICKER ----------
   const selectBox  = document.getElementById('customer_id_select');
-  const searchBox  = document.getElementById('customer_search');
   const hiddenId   = document.getElementById('customer_id_hidden');
   const unlockBox  = document.getElementById('unlockFields');
 
@@ -491,13 +485,6 @@ body{background:var(--bg);color:var(--ink)}
       console.error(err);
     }
   }
-
-  // ช่องค้นหา (debounce)
-  let timer=null;
-  searchBox?.addEventListener('input', (e)=>{
-    clearTimeout(timer);
-    timer=setTimeout(()=> loadCustomerOptions(e.target.value||''), 250);
-  });
 
   selectBox?.addEventListener('change', e=> fillCustomer(e.target.value));
 
