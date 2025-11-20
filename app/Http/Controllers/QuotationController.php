@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
+use App\Support\SimplePdf;
 use App\Services\InvoiceFromQuotation;
 use Dompdf\Dompdf;
 use Dompdf\Options;
@@ -214,29 +215,33 @@ class QuotationController extends Controller
 
     public function pdf(Quotation $quotation)
     {
-        if (!class_exists(Dompdf::class)) {
-            abort(500, 'Please install dompdf/dompdf before generating PDFs.');
-        }
-
         $quotation->loadMissing(['items' => fn ($q) => $q->orderBy('id')]);
 
-        $html = view('quotations.pdf', [
-            'quotation' => $quotation,
-        ])->render();
+        // ใช้ Dompdf ถ้ามี หากไม่มีให้ fallback เป็นตัวสร้าง PDF ในบ้านเพื่อกัน 500
+        if (class_exists(Dompdf::class)) {
+            $html = view('quotations.pdf', [
+                'quotation' => $quotation,
+            ])->render();
 
-        $options = new Options();
-        $options->set('isRemoteEnabled', true);
-        $options->set('isHtml5ParserEnabled', true);
-        $options->set('defaultFont', 'DejaVu Sans');
+            $options = new Options();
+            $options->set('isRemoteEnabled', true);
+            $options->set('isHtml5ParserEnabled', true);
+            $options->set('defaultFont', 'DejaVu Sans');
 
-        $dompdf = new Dompdf($options);
-        $dompdf->loadHtml($html);
-        $dompdf->setPaper('A4');
-        $dompdf->render();
+            $dompdf = new Dompdf($options);
+            $dompdf->loadHtml($html);
+            $dompdf->setPaper('A4');
+            $dompdf->render();
+
+            $payload = $dompdf->output();
+        } else {
+            // fallback ง่าย ๆ: แปลงข้อมูลหัว/รายการเป็น PDF ข้อความเพื่อให้โหลดไฟล์ได้
+            $payload = SimplePdf::quotation($quotation);
+        }
 
         $filename = ($quotation->number ?? 'quotation').'.pdf';
 
-        return response($dompdf->output(), 200, [
+        return response($payload, 200, [
             'Content-Type'        => 'application/pdf',
             'Content-Disposition' => 'inline; filename="'.$filename.'"',
         ]);
