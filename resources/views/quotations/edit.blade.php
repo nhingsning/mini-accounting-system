@@ -35,12 +35,7 @@
 
                 {{-- ===== Customer Picker (ใหม่) ===== --}}
                 <div class="row g-3 align-items-end mb-1">
-                  <div class="col-md-6">
-                    <label class="form-label">ค้นหาลูกค้า</label>
-                    <input id="customer_search" type="text" class="form-control" placeholder="พิมพ์ชื่อ / เลขผู้เสียภาษี"
-                           value="{{ old('customer_name', $quotation->customer_name) }}">
-                  </div>
-                  <div class="col-md-6">
+                  <div class="col-md-8">
                     <label class="form-label">Select Customer</label>
                     <select id="customer_id_select" class="form-select" data-initial="{{ old('customer_id', $quotation->customer_id) }}"
                             data-initial-name="{{ old('customer_name', $quotation->customer_name) }}">
@@ -51,9 +46,10 @@
                         </option>
                       @endif
                     </select>
+                    <div class="form-text">เลือกชื่อลูกค้าแล้วรายละเอียดจะถูกเติมให้อัตโนมัติ</div>
                   </div>
-                  <div class="col-12 d-flex justify-content-end">
-                    <div class="form-check">
+                  <div class="col-md-4 d-flex justify-content-end">
+                    <div class="form-check ms-auto">
                       <input class="form-check-input" type="checkbox" id="unlockFields">
                       <label class="form-check-label" for="unlockFields">ปลดล็อกเพื่อแก้ไขรายละเอียดลูกค้าในเอกสารนี้</label>
                     </div>
@@ -237,7 +233,6 @@ const SHOW_URL = "{{ url('/api/customers') }}";
 // ---------- CUSTOMER PICKER ----------
 (function(){
   const selectBox = document.getElementById('customer_id_select');
-  const searchBox = document.getElementById('customer_search');
   const hiddenId  = document.getElementById('customer_id_hidden');
   const unlockBox = document.getElementById('unlockFields');
   const initialName = selectBox?.dataset.initialName || '';
@@ -293,12 +288,6 @@ const SHOW_URL = "{{ url('/api/customers') }}";
     }
   }
 
-  // search debounce
-  let t=null;
-  searchBox?.addEventListener('input', e=>{
-    clearTimeout(t);
-    t=setTimeout(()=> loadCustomerOptions(e.target.value||''), 250);
-  });
   selectBox?.addEventListener('change', e=> fillCustomer(e.target.value));
 
   document.addEventListener('DOMContentLoaded', async ()=>{
@@ -307,9 +296,6 @@ const SHOW_URL = "{{ url('/api/customers') }}";
     if(initial){
       selectBox.value = initial;
       await fillCustomer(initial);
-      if(searchBox && initialName && !searchBox.value){
-        searchBox.value = initialName;
-      }
     }
   });
 })();

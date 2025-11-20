@@ -20,17 +20,13 @@
         <div class="panel-header"><strong>PO details</strong></div>
         <div class="panel-body">
           <div class="row g-3">
-            {{-- ===== Customer Picker (ใหม่) ===== --}}
-            <div class="col-md-4">
-              <label class="form-label">ค้นหาลูกค้า</label>
-              <input id="customer_search" type="text" class="form-control" placeholder="พิมพ์ชื่อ / เลขผู้เสียภาษี">
-            </div>
-            <div class="col-md-4">
+            {{-- ===== Customer Picker ===== --}}
+            <div class="col-md-8">
               <label class="form-label">Select Customer</label>
               <select id="customer_id_select" class="form-select" data-initial="{{ old('customer_id') }}">
                 <option value="">— เลือกลูกค้า —</option>
               </select>
-              <div class="form-text">พิมพ์ค้นหา แล้วเลือกเพื่อดึงข้อมูลมาใส่อัตโนมัติ</div>
+              <div class="form-text">เลือกชื่อลูกค้าเพื่อดึงข้อมูลมาใส่อัตโนมัติ</div>
             </div>
             <div class="col-md-4 d-flex align-items-end">
               <div class="form-check ms-auto">
@@ -156,7 +152,6 @@
 
   // ---------- CUSTOMER PICKER ----------
   const selectBox  = document.getElementById('customer_id_select');
-  const searchBox  = document.getElementById('customer_search');
   const hiddenId   = document.getElementById('customer_id_hidden');
   const unlockBox  = document.getElementById('unlockFields');
 
@@ -205,13 +200,6 @@
       if(fields.branchCode)  fields.branchCode.value  = c.branch_code || '';
     }catch(err){ console.error(err); }
   }
-
-  // ช่องค้นหาแบบ debounce
-  let timer=null;
-  searchBox?.addEventListener('input', (e)=>{
-    clearTimeout(timer);
-    timer=setTimeout(()=> loadCustomerOptions(e.target.value||''), 250);
-  });
 
   selectBox?.addEventListener('change', e=> fillCustomer(e.target.value));
 
