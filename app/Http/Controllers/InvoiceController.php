@@ -40,17 +40,48 @@ class InvoiceController extends Controller
         return $invoice;
     }
 
-<<<<<<< HEAD
-    // ===== Show (HTML view) =====
-    public function show(string $key)
-=======
-    public function show(Invoice $invoice)
+    // ===== Create form (HTML view) =====
+    public function create()
     {
-        return redirect()->route('invoices.edit', $invoice);
+        return view('invoices.create');
     }
 
+    // ===== Store action =====
     public function store(Request $request)
->>>>>>> 31866941e8e10f3e8320fc8f3e315afac769fadc
+    {
+        $data = $request->validate([
+            'number'               => 'nullable|string|max:255',
+            'customer_id'          => 'nullable|integer|exists:customers,id',
+            'customer_name'        => 'required|string|max:255',
+            'customer_address'     => 'nullable|string',
+            'customer_tax_id'      => 'nullable|string|max:50',
+            'customer_branch_type' => 'nullable|string|max:20',
+            'customer_branch_code' => 'nullable|string|max:20',
+            'issue_date'           => 'nullable|date',
+            'due_date'             => 'nullable|date',
+            'discount_percent'     => 'nullable|numeric',
+            'vat_enabled'          => 'sometimes|boolean',
+            'tax_rate'             => 'nullable|numeric',
+            'subtotal'             => 'nullable|numeric',
+            'tax'                  => 'nullable|numeric',
+            'total'                => 'nullable|numeric',
+            'status'               => 'nullable|string|max:50',
+            'currency'             => 'nullable|string|max:10',
+        ]);
+
+        $data['vat_enabled'] = $request->boolean('vat_enabled');
+
+        $invoice = Invoice::create($data);
+
+        $slug = $invoice->number ?: $invoice->id;
+
+        return redirect()
+            ->route('invoices.show', $slug)
+            ->with('ok', 'Created');
+    }
+
+    // ===== Show (HTML view) =====
+    public function show(string $key)
     {
         $invoice = $this->findByKey($key);
         return view('invoices.show', compact('invoice'));
@@ -80,5 +111,14 @@ class InvoiceController extends Controller
         // ให้ redirect กลับไปหน้า show โดยใช้เลขเอกสารถ้ามี
         $slug = $invoice->number ?: $invoice->id;
         return redirect()->route('invoices.show', $slug)->with('ok','Updated');
+    }
+
+    // ===== Delete action =====
+    public function destroy(string $key)
+    {
+        $invoice = $this->findByKey($key);
+        $invoice->delete();
+
+        return redirect()->route('invoices.index')->with('ok', 'Deleted');
     }
 }
