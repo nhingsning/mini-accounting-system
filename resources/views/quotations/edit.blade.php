@@ -37,11 +37,13 @@
                 <div class="row g-3 align-items-end mb-1">
                   <div class="col-md-6">
                     <label class="form-label">ค้นหาลูกค้า</label>
-                    <input id="customer_search" type="text" class="form-control" placeholder="พิมพ์ชื่อ / เลขผู้เสียภาษี">
+                    <input id="customer_search" type="text" class="form-control" placeholder="พิมพ์ชื่อ / เลขผู้เสียภาษี"
+                           value="{{ old('customer_name', $quotation->customer_name) }}">
                   </div>
                   <div class="col-md-6">
                     <label class="form-label">Select Customer</label>
-                    <select id="customer_id_select" class="form-select" data-initial="{{ old('customer_id', $quotation->customer_id) }}">
+                    <select id="customer_id_select" class="form-select" data-initial="{{ old('customer_id', $quotation->customer_id) }}"
+                            data-initial-name="{{ old('customer_name', $quotation->customer_name) }}">
                       <option value="">— เลือกลูกค้า —</option>
                     </select>
                   </div>
@@ -119,13 +121,13 @@
                   <div class="col-md-3">
                     <label class="form-label">Issue Date</label>
                     <input type="date" name="issue_date" class="form-control"
-                           value="{{ old('issue_date', $quotation->issue_date) }}">
+                           value="{{ old('issue_date', optional($quotation->issue_date)->format('Y-m-d')) }}">
                   </div>
 
                   <div class="col-md-3">
                     <label class="form-label">Valid Until</label>
                     <input type="date" name="valid_until" class="form-control"
-                           value="{{ old('valid_until', $quotation->valid_until) }}">
+                           value="{{ old('valid_until', optional($quotation->valid_until)->format('Y-m-d')) }}">
                   </div>
 
                   <div class="col-md-2">
@@ -203,9 +205,9 @@
                 </div>
 
                 <div class="card p-3">
-                  <div class="d-flex justify-content-between"><span>Subtotal</span><span id="sum-subtotal">0.00</span></div>
-                  <div class="d-flex justify-content-between"><span>Tax</span><span id="sum-tax">0.00</span></div>
-                  <div class="d-flex justify-content-between fw-600"><span>Total</span><span id="sum-total">0.00</span></div>
+                  <div class="d-flex justify-content-between"><span>Subtotal</span><span id="sum-subtotal" data-initial="{{ number_format((float) $quotation->subtotal, 2, '.', '') }}">0.00</span></div>
+                  <div class="d-flex justify-content-between"><span>Tax</span><span id="sum-tax" data-initial="{{ number_format((float) $quotation->tax, 2, '.', '') }}">0.00</span></div>
+                  <div class="d-flex justify-content-between fw-600"><span>Total</span><span id="sum-total" data-initial="{{ number_format((float) $quotation->total, 2, '.', '') }}">0.00</span></div>
                 </div>
               </div>
 
@@ -233,6 +235,7 @@ const SHOW_URL = "{{ url('/api/customers') }}";
   const searchBox = document.getElementById('customer_search');
   const hiddenId  = document.getElementById('customer_id_hidden');
   const unlockBox = document.getElementById('unlockFields');
+  const initialName = selectBox?.dataset.initialName || '';
 
   const fields = {
     name: document.getElementById('cust_name'),
@@ -256,6 +259,10 @@ const SHOW_URL = "{{ url('/api/customers') }}";
     const data = await res.json();
     [...selectBox.options].slice(1).forEach(o=>o.remove());
     data.forEach(row => selectBox.add(new Option(row.text, row.id)));
+    // ensure current customer shows up evenถ้า response ไม่มี
+    if(selectBox.dataset.initial && ![...selectBox.options].some(o=>o.value===selectBox.dataset.initial)){
+      selectBox.add(new Option(initialName || 'เลือกไว้ก่อนหน้า', selectBox.dataset.initial));
+    }
   }
 
   async function fillCustomer(id){
@@ -282,7 +289,13 @@ const SHOW_URL = "{{ url('/api/customers') }}";
   document.addEventListener('DOMContentLoaded', async ()=>{
     await loadCustomerOptions('');
     const initial = selectBox.dataset.initial;
-    if(initial){ selectBox.value = initial; await fillCustomer(initial); }
+    if(initial){
+      selectBox.value = initial;
+      await fillCustomer(initial);
+      if(searchBox && initialName && !searchBox.value){
+        searchBox.value = initialName;
+      }
+    }
   });
 })();
 
@@ -324,6 +337,18 @@ function calc(){
 function wireSum(){
   document.querySelectorAll('#itemTable input, [name="tax_rate"], #enable_vat')
     .forEach(el=>el.removeEventListener?.('input',calc) || el.addEventListener('input',calc));
+  const initSub = document.getElementById('sum-subtotal').dataset.initial;
+  const initTax = document.getElementById('sum-tax').dataset.initial;
+  const initTot = document.getElementById('sum-total').dataset.initial;
+  if(initSub){
+    document.getElementById('sum-subtotal').textContent = Number(initSub).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+  }
+  if(initTax){
+    document.getElementById('sum-tax').textContent = Number(initTax).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+  }
+  if(initTot){
+    document.getElementById('sum-total').textContent = Number(initTot).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+  }
   calc();
 }
 document.addEventListener('DOMContentLoaded', wireSum);
