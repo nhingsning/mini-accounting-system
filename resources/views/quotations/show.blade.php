@@ -84,6 +84,14 @@ body{background:var(--bg)}
       @if(Route::has('quotations.edit'))
       <a href="{{ route('quotations.edit', $quotation) }}" class="fa-btn primary">Edit</a>
       @endif
+      <form action="{{ route('quotations.convert.invoice', $quotation) }}" method="POST" style="display:inline">
+        @csrf
+        <button class="fa-btn light" type="submit">สร้าง Invoice จากใบนี้</button>
+      </form>
+      <form action="{{ route('quotations.convert.po', $quotation) }}" method="POST" style="display:inline">
+        @csrf
+        <button class="fa-btn light" type="submit">สร้าง PO จากใบนี้</button>
+      </form>
     </div>
   </div>
 

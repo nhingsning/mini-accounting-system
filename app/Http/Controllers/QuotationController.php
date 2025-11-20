@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Quotation;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
+use App\Models\Invoice as PurchaseOrder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -150,7 +151,7 @@ class QuotationController extends Controller
             'issue_date','valid_until','currency','customer_address','customer_tax_id','customer_id',
             'customer_branch_type','customer_branch_code','salesperson','reference','payment_terms',
             'contact_name','contact_email','contact_phone','vat_mode',
-            'discount_percent','discount_amount','tax_rate','subtotal','tax','total',
+            'discount_percent','discount_amount','tax_rate','withholding_rate','subtotal','tax','total',
             'status'
         ] as $col) {
             if (Schema::hasColumn('quotations', $col) && array_key_exists($col,$data)) {
@@ -203,6 +204,39 @@ class QuotationController extends Controller
         return view('quotations.show', compact('quotation'));
     }
 
+    public function convertToInvoice(Quotation $quotation)
+    {
+        $quotation->loadMissing('items');
+        $invoice = null;
+        try {
+            if (class_exists(\App\Services\InvoiceFromQuotation::class)) {
+                $invoice = app(\App\Services\InvoiceFromQuotation::class)->convert($quotation);
+            }
+        } catch (\Throwable $e) {
+            Log::error('Service convert QT->INV failed: '.$e->getMessage());
+        }
+
+        if (!$invoice) {
+            $invoice = $this->inlineCreateInvoice($quotation);
+        }
+
+        if ($invoice) {
+            return redirect()->route('invoices.show', $invoice)->with('ok','Invoice created from quotation.');
+        }
+
+        return back()->with('error','ไม่สามารถสร้าง Invoice ได้');
+    }
+
+    public function convertToPo(Quotation $quotation)
+    {
+        $quotation->loadMissing('items');
+        $po = $this->inlineCreatePurchaseOrder($quotation);
+        if ($po) {
+            return redirect()->route('invoices.show', $po)->with('ok','สร้าง PO จาก Quotation แล้ว');
+        }
+        return back()->with('error','ไม่สามารถสร้าง PO ได้');
+    }
+
     public function edit(Quotation $quotation)
     {
         if (method_exists($quotation,'items')) {
@@ -242,6 +276,7 @@ class QuotationController extends Controller
             'vat_enabled'          => ['nullable'],
             'vat_mode'             => ['nullable','in:exclusive,inclusive,none'],
             'tax_rate'             => ['nullable','numeric','min:0','max:100'],
+            'withholding_rate'     => ['nullable','numeric','min:0','max:100'],
             'status'               => ['required','in:draft,sent,approved,rejected,cancelled'],
             // รายการ
             'items'                 => ['required','array','min:1'],
@@ -266,7 +301,7 @@ class QuotationController extends Controller
                 'valid_until','currency','customer_address','customer_tax_id','customer_id',
                 'customer_branch_type','customer_branch_code','salesperson','reference','payment_terms',
                 'contact_name','contact_email','contact_phone','vat_mode',
-                'discount_percent','discount_amount','tax_rate'
+                'discount_percent','discount_amount','tax_rate','withholding_rate'
             ] as $col) {
                 if (Schema::hasColumn('quotations',$col) && array_key_exists($col,$data)) {
                     $payload[$col] = $data[$col];
@@ -509,6 +544,64 @@ class QuotationController extends Controller
             $inv->save();
 
             return $inv->fresh('items');
+        });
+    }
+
+    private function inlineCreatePurchaseOrder(Quotation $q): ?Invoice
+    {
+        return DB::transaction(function () use ($q) {
+            $q->loadMissing('items');
+
+            $period = ($q->issue_date ?: now())->format('Y-m');
+            $prefix = 'PO'.$period.'-';
+            $lastNo = PurchaseOrder::where('number','like',$prefix.'%')->orderByDesc('id')->value('number');
+            $seq = 0;
+            if ($lastNo && preg_match('/-(\d{4})$/', $lastNo, $m)) $seq = (int)$m[1];
+            $seq++;
+            $poNo = $prefix.str_pad((string)$seq, 4, '0', STR_PAD_LEFT);
+
+            $po = new PurchaseOrder();
+            $po->number        = $poNo;
+            $po->customer_name = (string) $q->customer_name;
+            $po->issue_date    = ($q->issue_date ?: now())->toDateString();
+            $po->due_date      = \Illuminate\Support\Carbon::parse($po->issue_date)->addDays(14)->toDateString();
+            $po->tax_rate      = (float) ($q->tax_rate ?? 0);
+            $po->subtotal      = 0;
+            $po->tax           = 0;
+            $po->total         = 0;
+            $po->status        = 'draft';
+            $po->save();
+
+            $subtotal = 0.0;
+            foreach ($q->items as $it) {
+                $qty   = (float)($it->qty ?? $it->quantity ?? 0);
+                $price = (float)($it->price ?? $it->unit_price ?? 0);
+                $disc  = (float)($it->discount ?? 0);
+                $line  = round(($qty * $price) - $disc, 2);
+
+                $item = new InvoiceItem();
+                $item->invoice_id = $po->id;
+                $item->description= (string)($it->description ?? '');
+                $item->qty        = (int) round($qty);
+                if (Schema::hasColumn('invoice_items','unit')) {
+                    $item->unit   = $it->unit ?? null;
+                }
+                $item->price      = $price;
+                $item->line_total = $line;
+                $item->save();
+
+                $subtotal += $line;
+            }
+
+            $tax   = round($subtotal * ((float)$po->tax_rate/100), 2);
+            $total = round($subtotal + $tax, 2);
+
+            $po->subtotal = $subtotal;
+            $po->tax      = $tax;
+            $po->total    = $total;
+            $po->save();
+
+            return $po->fresh('items');
         });
     }
 }

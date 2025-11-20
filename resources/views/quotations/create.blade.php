@@ -37,6 +37,7 @@ body{background:var(--bg);color:var(--ink)}
 .fa-totals .row strong{font-weight:800;color:var(--ink)}
 .fa-add{margin-top:10px}
 .fa-del{background:#fff;border:1px solid var(--line);border-radius:10px;padding:6px 12px;color:#ef4444;box-shadow:0 6px 16px -14px rgba(15,23,42,0.5)}
+.fa-copy{background:#fff;border:1px solid var(--line);border-radius:10px;padding:6px 12px;color:var(--brand);box-shadow:0 6px 16px -14px rgba(15,23,42,0.5);margin-right:6px}
 .text-right{text-align:right}
 .fa-badge{display:inline-block;background:#eef2ff;color:var(--brand);border:1px solid var(--brand);padding:2px 10px;border-radius:999px;font-size:12px;font-weight:700}
 .stack{display:flex;flex-direction:column;gap:8px}
@@ -54,10 +55,11 @@ body{background:var(--bg);color:var(--ink)}
 @endphp
 
 <div class="fa-wrap">
-  <div class="fa-topbar">
+    <div class="fa-topbar">
     <div class="fa-title">Create Quotation</div>
     <div class="fa-actions">
       <a href="{{ route('quotations.index') }}" class="fa-btn light">Close</a>
+      <button type="button" class="fa-btn light" id="previewBtn">Preview</button>
       <button type="button" class="fa-btn light" data-status="draft" id="draftBtn">Save Draft</button>
       <button type="button" class="fa-btn save" data-status="sent" id="finalBtn">Confirm &amp; Lock</button>
     </div>
@@ -196,9 +198,17 @@ body{background:var(--bg);color:var(--ink)}
 
             <div>
               <label class="fa-label">Payment Terms</label>
-              <input type="text" name="payment_terms" id="payment_terms" class="fa-input"
-                     value="{{ old('payment_terms', optional($quotation)->payment_terms) }}"
-                     placeholder="เช่น 30 วัน, เครดิต 45 วัน">
+              <div class="stack">
+                <select class="fa-select" id="payment_terms_templates">
+                  <option value="">— เลือกจาก Template —</option>
+                  <option value="จ่ายภายใน 7 วัน">จ่ายภายใน 7 วัน</option>
+                  <option value="เครดิต 30 วัน">เครดิต 30 วัน</option>
+                  <option value="เครดิต 45 วัน">เครดิต 45 วัน</option>
+                </select>
+                <input type="text" name="payment_terms" id="payment_terms" class="fa-input"
+                       value="{{ old('payment_terms', optional($quotation)->payment_terms) }}"
+                       placeholder="เช่น 30 วัน, เครดิต 45 วัน">
+              </div>
             </div>
 
             <div>
@@ -217,19 +227,38 @@ body{background:var(--bg);color:var(--ink)}
 
             <div class="span-2">
               <label class="fa-label">Detail / Notes</label>
-              <textarea class="fa-textarea" name="notes"
+              <div class="fa-two">
+                <div>
+                  <select class="fa-select" id="terms_templates">
+                    <option value="">— เลือก Terms &amp; Conditions —</option>
+                    <option value="ชำระ 30 วันหลังรับสินค้า">ชำระ 30 วันหลังรับสินค้า</option>
+                    <option value="รับประกันสินค้า 90 วัน">รับประกันสินค้า 90 วัน</option>
+                    <option value="ราคานี้ไม่รวมค่าขนส่งและติดตั้ง">ราคานี้ไม่รวมค่าขนส่งและติดตั้ง</option>
+                  </select>
+                </div>
+                <div>
+                  <select class="fa-select" id="warranty_templates">
+                    <option value="">— ระยะเวลารับประกัน —</option>
+                    <option value="รับประกัน 30 วัน">รับประกัน 30 วัน</option>
+                    <option value="รับประกัน 90 วัน">รับประกัน 90 วัน</option>
+                    <option value="รับประกัน 1 ปี">รับประกัน 1 ปี</option>
+                  </select>
+                </div>
+              </div>
+              <textarea class="fa-textarea" name="notes" id="notes_box"
                         placeholder="ระบุเงื่อนไขการขาย / การชำระเงิน / หมายเหตุ">{{ old('notes', optional($quotation)->notes) }}</textarea>
+              <div class="helper">เลือก template ด้านบนเพื่อแทรกข้อความลงในช่องนี้ทันที</div>
             </div>
           </div>
         </div>
 
         <div class="section-title" style="margin-top:10px">Line Items</div>
         <div style="margin-top:10px">
-          <table class="fa-table" id="itemsTable">
-            <thead>
-              <tr>
-                <th class="no">No.</th>
-                <th>Name / Description</th>
+      <table class="fa-table" id="itemsTable">
+        <thead>
+          <tr>
+            <th class="no">No.</th>
+            <th>Name / Description</th>
                 <th class="qty">Quantity</th>
                 <th class="price">Unit Price</th>
                 <th class="price">Discount</th>
@@ -270,6 +299,7 @@ body{background:var(--bg);color:var(--ink)}
                 </td>
                 <td class="line line-total">{{ number_format($line,2) }}</td>
                 <td class="text-right">
+                  <button type="button" class="fa-copy" onclick="copyRow(this)">Copy</button>
                   <button type="button" class="fa-del" onclick="this.closest('tr').remove(); renumberRows(); recalcTotals();">×</button>
                 </td>
               </tr>
@@ -339,19 +369,30 @@ body{background:var(--bg);color:var(--ink)}
                        {{ $vatOn ? 'checked' : '' }} onchange="recalcTotals()">
                 <span class="fa-label" style="margin:0">Apply VAT</span>
               </label>
+              <div style="margin-top:10px">
+                <label class="fa-label">Withholding Tax</label>
+                @php $wht = (float)old('withholding_rate', optional($quotation)->withholding_rate ?? 0); @endphp
+                <select class="fa-select" name="withholding_rate" onchange="recalcTotals()">
+                  <option value="0" {{ $wht==0?'selected':'' }}>ไม่มีหัก ณ ที่จ่าย</option>
+                  <option value="1" {{ $wht==1?'selected':'' }}>1%</option>
+                  <option value="3" {{ $wht==3?'selected':'' }}>3%</option>
+                  <option value="5" {{ $wht==5?'selected':'' }}>5%</option>
+                </select>
+              </div>
             </dd>
           </dl>
         </div>
 
-        <div class="fa-card fa-section fa-totals">
-          <div class="section-title" style="margin-bottom:4px">Summary</div>
-          <div class="row"><span>Subtotal</span><strong id="subTotal">0.00</strong></div>
-          <div class="row"><span>Discount</span><strong id="discTotal">0.00</strong></div>
-          <div class="row"><span>Tax</span><strong id="taxTotal">0.00</strong></div>
-          <div class="row" style="border-top:1px dashed var(--line);padding-top:8px">
-            <span>Total</span><strong id="grandTotal">0.00</strong>
-          </div>
-        </div>
+    <div class="fa-card fa-section fa-totals">
+      <div class="section-title" style="margin-bottom:4px">Summary</div>
+      <div class="row"><span>Subtotal</span><strong id="subTotal">0.00</strong></div>
+      <div class="row"><span>Discount</span><strong id="discTotal">0.00</strong></div>
+      <div class="row"><span>Tax</span><strong id="taxTotal">0.00</strong></div>
+      <div class="row"><span>Withholding (WHT)</span><strong id="whtTotal">0.00</strong></div>
+      <div class="row" style="border-top:1px dashed var(--line);padding-top:8px">
+        <span>Total</span><strong id="grandTotal">0.00</strong>
+      </div>
+    </div>
 
       </div>
     </div>
@@ -363,6 +404,16 @@ body{background:var(--bg);color:var(--ink)}
     <input type="hidden" name="total"            id="totalInput"     value="0">
 
   </form>
+
+  <div id="previewModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.52);z-index:90;align-items:center;justify-content:center;padding:18px;">
+    <div style="background:#fff;border-radius:16px;max-width:960px;width:100%;max-height:92vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,0.35);padding:18px 20px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px;">
+        <div style="font-weight:700;font-size:18px;">Preview</div>
+        <button type="button" class="fa-del" onclick="closePreview()">Close</button>
+      </div>
+      <div id="previewContent" style="font-size:14px;color:#0f172a"></div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -473,6 +524,15 @@ body{background:var(--bg);color:var(--ink)}
     if(hidden){ hidden.value = more ? (name + "\n" + more) : name; }
   };
 
+  window.copyRow = function(btn){
+    const tr = btn.closest('tr');
+    if(!tr) return;
+    const clone = tr.cloneNode(true);
+    tr.parentNode.insertBefore(clone, tr.nextSibling);
+    renumberRows();
+    recalcTotals();
+  };
+
   // คำนวณยอด + sync ไปที่กล่องด้านขวา + hidden
   window.recalcTotals = function(){
     const tbody=document.querySelector('#itemsTable tbody'); let sub=0;
@@ -509,15 +569,20 @@ body{background:var(--bg);color:var(--ink)}
       }
     }
 
+    const whtRate = Number(document.querySelector('[name="withholding_rate"]')?.value || 0);
+    const wht = whtRate > 0 ? afterDisc * (whtRate/100) : 0;
+    const finalTotal = Math.max(total - wht, 0);
+
     document.getElementById('subTotal').textContent  = fmt(sub);
     document.getElementById('discTotal').textContent = fmt(discTotal);
     document.getElementById('taxTotal').textContent  = fmt(tax);
-    document.getElementById('grandTotal').textContent= fmt(total);
+    document.getElementById('whtTotal').textContent  = fmt(wht);
+    document.getElementById('grandTotal').textContent= fmt(finalTotal);
 
     document.getElementById('subtotalInput').value = fmt(sub);
     document.getElementById('discountInput').value = fmt(discTotal);
     document.getElementById('taxInput').value      = fmt(tax);
-    document.getElementById('totalInput').value    = fmt(total);
+    document.getElementById('totalInput').value    = fmt(finalTotal);
   };
 
   // เรียงเลขบรรทัด + ซ่อม index ชื่อฟิลด์ items[i][...]
@@ -529,6 +594,7 @@ body{background:var(--bg);color:var(--ink)}
         const m = inp.name && inp.name.match(/^items\[\d+\]/);
         if(m){ inp.name = inp.name.replace(/^items\[\d+\]/, `items[${i}]`); }
       });
+      tr.setAttribute('draggable','true');
     });
   };
 
@@ -551,7 +617,7 @@ body{background:var(--bg);color:var(--ink)}
       <td class="price"><input class="fa-input price" type="number" min="0" step="0.01" name="items[${i}][unit_price]" value="0" oninput="recalcTotals()"></td>
       <td class="price"><input class="fa-input discount" type="number" min="0" step="0.01" name="items[${i}][discount]" value="0" oninput="recalcTotals()"></td>
       <td class="line line-total">0.00</td>
-      <td class="text-right"><button type="button" class="fa-del" onclick="this.closest('tr').remove(); renumberRows(); recalcTotals();">×</button></td>`;
+      <td class="text-right"><button type="button" class="fa-copy" onclick="copyRow(this)">Copy</button><button type="button" class="fa-del" onclick="this.closest('tr').remove(); renumberRows(); recalcTotals();">×</button></td>`;
     tbody.appendChild(tr);
     renumberRows(); recalcTotals();
   };
@@ -578,6 +644,87 @@ body{background:var(--bg);color:var(--ink)}
           document.getElementById('qForm')?.submit();
         });
       });
+
+      // Enter to add row
+      document.querySelector('#itemsTable tbody')?.addEventListener('keydown', (e)=>{
+        if(e.key === 'Enter' && !e.shiftKey){
+          e.preventDefault();
+          addItemRow();
+          const lastRow = document.querySelector('#itemsTable tbody tr:last-child');
+          lastRow?.querySelector('.name-text')?.focus();
+        }
+      });
+
+      // drag & drop reorder
+      let dragSrc = null;
+      const tbody = document.querySelector('#itemsTable tbody');
+      tbody?.addEventListener('dragstart', (e)=>{ dragSrc = e.target.closest('tr'); });
+      tbody?.addEventListener('dragover', (e)=>{ e.preventDefault(); });
+      tbody?.addEventListener('drop', (e)=>{
+        e.preventDefault();
+        const target = e.target.closest('tr');
+        if(dragSrc && target && dragSrc !== target){
+          const rows = [...tbody.querySelectorAll('tr')];
+          const srcIndex = rows.indexOf(dragSrc);
+          const tgtIndex = rows.indexOf(target);
+          if(srcIndex < tgtIndex){
+            target.after(dragSrc);
+          } else {
+            target.before(dragSrc);
+          }
+          renumberRows();
+        }
+      });
+
+      // template helpers
+      document.getElementById('payment_terms_templates')?.addEventListener('change', (e)=>{
+        if(e.target.value){ document.getElementById('payment_terms').value = e.target.value; }
+      });
+      const noteBox = document.getElementById('notes_box');
+      function appendNote(text){
+        if(!text) return;
+        if(!noteBox.value.includes(text)){
+          noteBox.value = (noteBox.value ? noteBox.value + '\n' : '') + text;
+        }
+      }
+      document.getElementById('terms_templates')?.addEventListener('change', e=> appendNote(e.target.value));
+      document.getElementById('warranty_templates')?.addEventListener('change', e=> appendNote(e.target.value));
+
+      // preview modal
+      document.getElementById('previewBtn')?.addEventListener('click', ()=>{
+        recalcTotals();
+        const content = document.getElementById('previewContent');
+        const rows = [...document.querySelectorAll('#itemsTable tbody tr')].map(tr=>{
+          return {
+            name: tr.querySelector('.name-text')?.value || '',
+            desc: tr.querySelector('.desc-text')?.value || '',
+            qty: num(tr.querySelector('.qty')),
+            price: num(tr.querySelector('.price')),
+            discount: num(tr.querySelector('.discount')),
+            line: num(tr.querySelector('.line-total')),
+          }
+        });
+        const note = noteBox?.value || '';
+        const cust = document.getElementById('cust_name')?.value || '';
+        const pay = document.getElementById('payment_terms')?.value || '';
+        const total = document.getElementById('grandTotal')?.textContent || '0.00';
+        content.innerHTML = `
+          <div style="display:flex;justify-content:space-between;gap:12px;margin-bottom:10px;">
+            <div><div class="fa-label">Customer</div><div style="font-weight:700;">${cust||'-'}</div></div>
+            <div><div class="fa-label">Payment</div><div style="font-weight:700;">${pay||'-'}</div></div>
+            <div><div class="fa-label">Total</div><div style="font-weight:800;font-size:18px;">${total}</div></div>
+          </div>
+          <table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead><tr style="background:#f1f5f9"><th style="text-align:left;padding:6px">Item</th><th style="text-align:right;padding:6px">Qty</th><th style="text-align:right;padding:6px">Price</th><th style="text-align:right;padding:6px">Discount</th><th style="text-align:right;padding:6px">Line</th></tr></thead>
+            <tbody>
+              ${rows.map(r=>`<tr><td style="padding:6px 8px;"><div style="font-weight:700;">${r.name||'-'}</div>${r.desc?`<div style="color:#6b7280;">${r.desc}</div>`:''}</td><td style="text-align:right;padding:6px;">${r.qty.toFixed(2)}</td><td style="text-align:right;padding:6px;">${r.price.toFixed(2)}</td><td style="text-align:right;padding:6px;">${r.discount.toFixed(2)}</td><td style="text-align:right;padding:6px;">${r.line.toFixed(2)}</td></tr>`).join('')}
+            </tbody>
+          </table>
+          ${note ? `<div style="margin-top:12px"><div class="fa-label">Notes</div><div>${note.replace(/\n/g,'<br>')}</div></div>` : ''}
+        `;
+        document.getElementById('previewModal').style.display='flex';
+      });
+      window.closePreview = function(){ document.getElementById('previewModal').style.display='none'; };
 
       // กันพลาดก่อน submit: รวม description ทุกแถว + คำนวณซ้ำ
       document.getElementById('qForm')?.addEventListener('submit', ()=>{
