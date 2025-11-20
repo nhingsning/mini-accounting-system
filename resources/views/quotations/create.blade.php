@@ -58,7 +58,8 @@ body{background:var(--bg);color:var(--ink)}
     <div class="fa-title">Create Quotation</div>
     <div class="fa-actions">
       <a href="{{ route('quotations.index') }}" class="fa-btn light">Close</a>
-      <button type="submit" class="fa-btn save" form="qForm">Save</button>
+      <button type="button" class="fa-btn light" data-status="draft" id="draftBtn">Save Draft</button>
+      <button type="button" class="fa-btn save" data-status="sent" id="finalBtn">Confirm &amp; Lock</button>
     </div>
   </div>
 
@@ -77,8 +78,9 @@ body{background:var(--bg);color:var(--ink)}
     <div class="alert alert-success" role="alert">{{ session('ok') }}</div>
   @endif
 
-  <form id="qForm" method="POST" action="{{ route('quotations.store') }}" autocomplete="off">
+  <form id="qForm" method="POST" action="{{ route('quotations.store') }}" autocomplete="off" enctype="multipart/form-data">
     @csrf
+    <input type="hidden" name="status" id="statusInput" value="{{ old('status','draft') }}">
     <input type="hidden" name="customer_id" id="customer_id_hidden" value="{{ old('customer_id', optional($quotation)->customer_id) }}">
 
     <div class="fa-grid">
@@ -165,6 +167,27 @@ body{background:var(--bg);color:var(--ink)}
             </div>
 
             <div>
+              <label class="fa-label">Contact Person</label>
+              <input id="contact_name" type="text" name="contact_name" class="fa-input"
+                     value="{{ old('contact_name', optional($quotation)->contact_name) }}"
+                     placeholder="ผู้ติดต่อหลัก">
+            </div>
+
+            <div>
+              <label class="fa-label">Contact Email</label>
+              <input id="contact_email" type="email" name="contact_email" class="fa-input"
+                     value="{{ old('contact_email', optional($quotation)->contact_email) }}"
+                     placeholder="อีเมลสำหรับติดต่อ">
+            </div>
+
+            <div>
+              <label class="fa-label">Contact Phone</label>
+              <input id="contact_phone" type="text" name="contact_phone" class="fa-input"
+                     value="{{ old('contact_phone', optional($quotation)->contact_phone) }}"
+                     placeholder="เบอร์โทร">
+            </div>
+
+            <div>
               <label class="fa-label">Salesperson</label>
               <input type="text" name="salesperson" class="fa-input"
                      value="{{ old('salesperson', optional($quotation)->salesperson) }}"
@@ -172,9 +195,23 @@ body{background:var(--bg);color:var(--ink)}
             </div>
 
             <div>
+              <label class="fa-label">Payment Terms</label>
+              <input type="text" name="payment_terms" id="payment_terms" class="fa-input"
+                     value="{{ old('payment_terms', optional($quotation)->payment_terms) }}"
+                     placeholder="เช่น 30 วัน, เครดิต 45 วัน">
+            </div>
+
+            <div>
               <label class="fa-label">Discount (%)</label>
               <input type="number" min="0" step="0.01" name="discount_percent" class="fa-input"
                      value="{{ old('discount_percent', optional($quotation)->discount_percent ?? 0) }}"
+                     oninput="recalcTotals()">
+            </div>
+
+            <div>
+              <label class="fa-label">Discount (Amount)</label>
+              <input type="number" min="0" step="0.01" name="discount_amount" class="fa-input"
+                     value="{{ old('discount_amount', optional($quotation)->discount_amount ?? 0) }}"
                      oninput="recalcTotals()">
             </div>
 
@@ -195,6 +232,7 @@ body{background:var(--bg);color:var(--ink)}
                 <th>Name / Description</th>
                 <th class="qty">Quantity</th>
                 <th class="price">Unit Price</th>
+                <th class="price">Discount</th>
                 <th class="line">Total</th>
                 <th style="width:48px"></th>
               </tr>
@@ -208,7 +246,8 @@ body{background:var(--bg);color:var(--ink)}
                 $extraText = $pos === false ? '' : trim(substr($desc,$pos+1));
                 $qty  = (float)($item['quantity'] ?? $item['qty'] ?? 1);
                 $unit = (float)($item['unit_price'] ?? $item['price'] ?? 0);
-                $line = $qty * $unit;
+                $disc = (float)($item['discount'] ?? 0);
+                $line = ($qty * $unit) - $disc;
               @endphp
               <tr>
                 <td class="no">{{ $i+1 }}</td>
@@ -226,6 +265,9 @@ body{background:var(--bg);color:var(--ink)}
                 <td class="price">
                   <input class="fa-input price" type="number" min="0" step="0.01" name="items[{{ $i }}][unit_price]" value="{{ $unit }}" oninput="recalcTotals()">
                 </td>
+                <td class="price">
+                  <input class="fa-input discount" type="number" min="0" step="0.01" name="items[{{ $i }}][discount]" value="{{ $disc ?? 0 }}" oninput="recalcTotals()">
+                </td>
                 <td class="line line-total">{{ number_format($line,2) }}</td>
                 <td class="text-right">
                   <button type="button" class="fa-del" onclick="this.closest('tr').remove(); renumberRows(); recalcTotals();">×</button>
@@ -239,6 +281,13 @@ body{background:var(--bg);color:var(--ink)}
             <button type="button" class="fa-btn light" id="addRow" onclick="addItemRow()">+ Add item</button>
           </div>
         </div>
+
+        <div class="fa-section" style="margin-top:14px">
+          <div class="section-title">Attachments</div>
+          <input type="file" name="attachments[]" id="attachments" class="fa-input" multiple
+                 accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx">
+          <div class="helper">แนบไฟล์ PDF / รูปภาพ / เอกสาร Word เพื่อเก็บพร้อมใบเสนอราคา</div>
+        </div>
       </div>
 
       {{-- RIGHT --}}
@@ -246,8 +295,8 @@ body{background:var(--bg);color:var(--ink)}
         <div class="fa-card fa-section fa-meta" style="margin-bottom:12px">
           <div class="section-title">Document Info</div>
           <dl>
-            <dt>Quotation No.</dt><dd>{{ $number }}</dd>
-            <dt>Status</dt><dd><span class="fa-badge">Draft</span></dd>
+            <dt>Quotation No.</dt><dd><strong>{{ $number }}</strong></dd>
+            <dt>Status</dt><dd><span class="fa-badge" id="statusBadge">{{ ucfirst(old('status','draft')) }}</span></dd>
 
             <dt>Date</dt>
             <dd><input class="fa-input" type="date" name="issue_date"
@@ -257,14 +306,23 @@ body{background:var(--bg);color:var(--ink)}
             <dd><input class="fa-input" type="date" name="valid_until"
                        value="{{ old('valid_until', optional($quotation)->valid_until) }}"></dd>
 
-            <dt>Enable VAT</dt>
+            <dt>VAT Mode</dt>
             <dd>
-              @php $vatOn = old('vat_enabled', optional($quotation)->vat_enabled) ? true : false; @endphp
-              <label style="display:flex;align-items:center;gap:8px">
-                <input type="checkbox" name="vat_enabled" value="1"
-                       {{ $vatOn ? 'checked' : '' }} onchange="recalcTotals()">
-                <span class="fa-label" style="margin:0">Calculate tax from total</span>
-              </label>
+              @php $mode = old('vat_mode', optional($quotation)->vat_mode ?? 'exclusive'); @endphp
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <label style="display:flex;align-items:center;gap:8px">
+                  <input type="radio" name="vat_mode" value="exclusive" {{ $mode==='exclusive'?'checked':'' }} onchange="recalcTotals()">
+                  <span class="fa-label" style="margin:0">Exclude VAT (add on top)</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:8px">
+                  <input type="radio" name="vat_mode" value="inclusive" {{ $mode==='inclusive'?'checked':'' }} onchange="recalcTotals()">
+                  <span class="fa-label" style="margin:0">Include VAT (prices already include)</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:8px">
+                  <input type="radio" name="vat_mode" value="none" {{ $mode==='none'?'checked':'' }} onchange="recalcTotals()">
+                  <span class="fa-label" style="margin:0">No VAT</span>
+                </label>
+              </div>
             </dd>
 
             <dt>Tax Rate (%)</dt>
@@ -275,6 +333,12 @@ body{background:var(--bg);color:var(--ink)}
                 <option value="3" {{ $rate==3 ? 'selected' : '' }}>3%</option>
                 <option value="7" {{ $rate==7 ? 'selected' : '' }}>7%</option>
               </select>
+              <label style="display:flex;align-items:center;gap:8px;margin-top:8px">
+                @php $vatOn = old('vat_enabled', optional($quotation)->vat_enabled ?? true) ? true : false; @endphp
+                <input type="checkbox" name="vat_enabled" value="1"
+                       {{ $vatOn ? 'checked' : '' }} onchange="recalcTotals()">
+                <span class="fa-label" style="margin:0">Apply VAT</span>
+              </label>
             </dd>
           </dl>
         </div>
@@ -294,7 +358,7 @@ body{background:var(--bg);color:var(--ink)}
 
     {{-- hidden totals for validator --}}
     <input type="hidden" name="subtotal"         id="subtotalInput"  value="0">
-    <input type="hidden" name="discount_amount"  id="discountInput"  value="0">
+    <input type="hidden" name="discount_total"   id="discountInput"  value="0">
     <input type="hidden" name="tax"              id="taxInput"       value="0">
     <input type="hidden" name="total"            id="totalInput"     value="0">
 
@@ -319,6 +383,10 @@ body{background:var(--bg);color:var(--ink)}
     tax: document.getElementById('cust_tax'),
     branchType: document.getElementById('cust_branch_type'),
     branchCode: document.getElementById('cust_branch_code'),
+    contactName: document.getElementById('contact_name'),
+    contactEmail: document.getElementById('contact_email'),
+    contactPhone: document.getElementById('contact_phone'),
+    paymentTerms: document.getElementById('payment_terms'),
   };
 
   function setLocked(locked){
@@ -355,13 +423,19 @@ body{background:var(--bg);color:var(--ink)}
         headers: {'X-Requested-With':'XMLHttpRequest'}
       });
       if(!res.ok) throw new Error('Customer not found');
-      const c = await res.json();
+      const payload = await res.json();
+      const c = payload.customer || {};
+      const contact = payload.contact || {};
       hiddenId.value = c.id || '';
       if(fields.name)        fields.name.value        = c.name || '';
-      if(fields.address)     fields.address.value     = c.address || '';
+      if(fields.address)     fields.address.value     = c.address_show || c.address || '';
       if(fields.tax)         fields.tax.value         = c.tax_id || '';
-      if(fields.branchType)  fields.branchType.value  = (c.is_branch ? 'branch' : 'head');
+      if(fields.branchType)  fields.branchType.value  = (c.office_type || (c.is_branch ? 'branch' : 'head') || '-');
       if(fields.branchCode)  fields.branchCode.value  = c.branch_code || '';
+      if(fields.contactName) fields.contactName.value = contact.contact_name || c.contact_name || '';
+      if(fields.contactEmail)fields.contactEmail.value= contact.email || c.contact_email || '';
+      if(fields.contactPhone)fields.contactPhone.value= contact.mobile || c.contact_phone || '';
+      if(fields.paymentTerms)fields.paymentTerms.value= c.payment_terms || '';
     } catch(err){
       console.error(err);
     }
@@ -406,28 +480,42 @@ body{background:var(--bg);color:var(--ink)}
       tbody.querySelectorAll('tr').forEach(tr=>{
         const q=num(tr.querySelector('input.qty'));
         const p=num(tr.querySelector('input.price'));
-        const line=q*p;
+        const d=num(tr.querySelector('input.discount'));
+        const line=q*p - d;
         const cell=tr.querySelector('.line-total'); if(cell) cell.textContent=fmt(line);
         sub+=line;
       });
     }
 
     const discPct = num(document.querySelector('[name="discount_percent"]'));
-    const afterDisc = sub * (1 - discPct/100);
-    const discountAmt = sub - afterDisc;
+    const discAmt = num(document.querySelector('[name="discount_amount"]'));
+    const discTotal = (sub * (discPct/100)) + discAmt;
+    const afterDisc = Math.max(sub - discTotal, 0);
 
     const vatOn = document.querySelector('[name="vat_enabled"]')?.checked;
     const rate  = Number(document.querySelector('[name="tax_rate"]')?.value || 0);
-    const tax   = vatOn ? (afterDisc * (rate/100)) : 0;
-    const total = afterDisc + tax;
+    const mode  = document.querySelector('[name="vat_mode"]:checked')?.value || 'exclusive';
+
+    let tax=0, total=afterDisc;
+    if(vatOn && rate>0 && mode !== 'none'){
+      if(mode === 'inclusive'){
+        const net = afterDisc / (1 + rate/100);
+        tax = afterDisc - net;
+        total = afterDisc;
+        sub = net; // show net as subtotal
+      } else {
+        tax = afterDisc * (rate/100);
+        total = afterDisc + tax;
+      }
+    }
 
     document.getElementById('subTotal').textContent  = fmt(sub);
-    document.getElementById('discTotal').textContent = fmt(discountAmt);
+    document.getElementById('discTotal').textContent = fmt(discTotal);
     document.getElementById('taxTotal').textContent  = fmt(tax);
     document.getElementById('grandTotal').textContent= fmt(total);
 
     document.getElementById('subtotalInput').value = fmt(sub);
-    document.getElementById('discountInput').value = fmt(discountAmt);
+    document.getElementById('discountInput').value = fmt(discTotal);
     document.getElementById('taxInput').value      = fmt(tax);
     document.getElementById('totalInput').value    = fmt(total);
   };
@@ -461,6 +549,7 @@ body{background:var(--bg);color:var(--ink)}
       </td>
       <td class="qty"><input class="fa-input qty"   type="number" min="0" step="1"    name="items[${i}][quantity]"   value="1" oninput="recalcTotals()"></td>
       <td class="price"><input class="fa-input price" type="number" min="0" step="0.01" name="items[${i}][unit_price]" value="0" oninput="recalcTotals()"></td>
+      <td class="price"><input class="fa-input discount" type="number" min="0" step="0.01" name="items[${i}][discount]" value="0" oninput="recalcTotals()"></td>
       <td class="line line-total">0.00</td>
       <td class="text-right"><button type="button" class="fa-del" onclick="this.closest('tr').remove(); renumberRows(); recalcTotals();">×</button></td>`;
     tbody.appendChild(tr);
@@ -468,19 +557,32 @@ body{background:var(--bg);color:var(--ink)}
   };
 
   // init
-  document.addEventListener('DOMContentLoaded', ()=>{
-    document.querySelectorAll('#itemsTable tbody tr').forEach(tr=>{
-      combineDesc(tr.querySelector('.name-text')||tr.querySelector('.desc-text'));
-    });
-    renumberRows(); recalcTotals();
-
-    document.querySelector('[name="tax_rate"]')?.addEventListener('change', recalcTotals);
-    document.querySelector('[name="vat_enabled"]')?.addEventListener('change', recalcTotals);
-
-    // กันพลาดก่อน submit: รวม description ทุกแถว + คำนวณซ้ำ
-    document.getElementById('qForm')?.addEventListener('submit', ()=>{
+    document.addEventListener('DOMContentLoaded', ()=>{
       document.querySelectorAll('#itemsTable tbody tr').forEach(tr=>{
         combineDesc(tr.querySelector('.name-text')||tr.querySelector('.desc-text'));
+      });
+      renumberRows(); recalcTotals();
+
+      document.querySelector('[name="tax_rate"]')?.addEventListener('change', recalcTotals);
+      document.querySelector('[name="vat_enabled"]')?.addEventListener('change', recalcTotals);
+      document.querySelectorAll('[name="vat_mode"]').forEach(r=> r.addEventListener('change', recalcTotals));
+
+      document.querySelectorAll('button[data-status]').forEach(btn => {
+        btn.addEventListener('click', (e)=>{
+          const status = e.currentTarget.dataset.status || 'draft';
+          const statusInput = document.getElementById('statusInput');
+          if(statusInput) statusInput.value = status;
+          const badge = document.getElementById('statusBadge');
+          if(badge) badge.textContent = status.charAt(0).toUpperCase()+status.slice(1);
+          recalcTotals();
+          document.getElementById('qForm')?.submit();
+        });
+      });
+
+      // กันพลาดก่อน submit: รวม description ทุกแถว + คำนวณซ้ำ
+      document.getElementById('qForm')?.addEventListener('submit', ()=>{
+        document.querySelectorAll('#itemsTable tbody tr').forEach(tr=>{
+          combineDesc(tr.querySelector('.name-text')||tr.querySelector('.desc-text'));
       });
       recalcTotals();
     });

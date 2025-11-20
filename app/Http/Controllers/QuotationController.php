@@ -53,12 +53,16 @@ class QuotationController extends Controller
         return [
             'statuses' => [
                 'draft'     => 'Draft',
+                'sent'      => 'Sent',
                 'approved'  => 'Approved',
                 'rejected'  => 'Rejected',
+                'cancelled' => 'Cancelled',
             ],
             'currencies' => [
                 'THB' => 'THB (฿)',
                 'USD' => 'USD ($)',
+                'EUR' => 'EUR (€)',
+                'JPY' => 'JPY (¥)',
             ],
             'branchTypes' => [
                 '-'      => '—',
@@ -76,15 +80,17 @@ class QuotationController extends Controller
             'valid_until'          => null,
             'status'               => 'draft',
             'currency'             => 'THB',
-            'tax_rate'             => 0,
+            'tax_rate'             => 7,
+            'vat_mode'             => 'exclusive',
             'discount_percent'     => 0,
-            'vat_enabled'          => false,
+            'discount_amount'      => 0,
+            'vat_enabled'          => true,
             'customer_branch_type' => '-', // ให้ตรงกับฟอร์ม
         ]);
 
         // แสดงตัวอย่างเลข (ตัวจริงจะออกตอนบันทึก)
-        $q->number = 'QT'.now()->format('Y-m').'-????';
-        $provisionalNumber = $q->number; // เผื่อวิวเก่าอ้างตัวแปรนี้
+        $provisionalNumber = Quotation::previewNextNumber();
+        $q->number = $provisionalNumber;
 
         return view(
             'quotations.create',
@@ -99,6 +105,7 @@ class QuotationController extends Controller
     {
         $data = $request->validate([
             'number'               => ['prohibited'], // ออกเลขใน Model เอง
+            'customer_id'          => ['nullable','integer','exists:customers,id'],
             'customer_name'        => ['required','string','max:255'],
             'issue_date'           => ['nullable','date'],
             'valid_until'          => ['nullable','date','after_or_equal:issue_date'],
@@ -109,13 +116,19 @@ class QuotationController extends Controller
             'customer_branch_code' => ['nullable','string','max:50'],
             'salesperson'          => ['nullable','string','max:255'],
             'reference'            => ['nullable','string','max:255'],
+            'payment_terms'        => ['nullable','string','max:255'],
+            'contact_name'         => ['nullable','string','max:255'],
+            'contact_email'        => ['nullable','string','max:255'],
+            'contact_phone'        => ['nullable','string','max:255'],
             'discount_percent'     => ['nullable','numeric','min:0'],
+            'discount_amount'      => ['nullable','numeric','min:0'],
             'vat_enabled'          => ['nullable'],
+            'vat_mode'             => ['nullable','in:exclusive,inclusive,none'],
             'tax_rate'             => ['nullable','numeric','min:0','max:100'],
             'subtotal'             => ['nullable','numeric'],
-            'discount_amount'      => ['nullable','numeric'],
             'tax'                  => ['nullable','numeric'],
             'total'                => ['nullable','numeric'],
+            'status'               => ['nullable','in:draft,sent,approved,rejected,cancelled'],
             // รายการ (รองรับชื่อสองแบบ)
             'items'                 => ['array'],
             'items.*.description'   => ['nullable','string'],
@@ -125,16 +138,20 @@ class QuotationController extends Controller
             'items.*.price'         => ['nullable','numeric','min:0'],
             'items.*.discount'      => ['nullable','numeric','min:0'],
             'items.*.unit'          => ['nullable','string','max:50'],
+            'attachments'           => ['sometimes','array'],
+            'attachments.*'         => ['file','max:12288','mimes:pdf,jpeg,jpg,png,webp,doc,docx'],
         ]);
 
         $payload = [
             'customer_name' => $data['customer_name'],
-            'status'        => 'draft',
+            'status'        => $data['status'] ?? 'draft',
         ];
         foreach ([
-            'issue_date','valid_until','currency','customer_address','customer_tax_id',
-            'customer_branch_type','customer_branch_code','salesperson','reference',
-            'discount_percent','tax_rate','subtotal','discount_amount','tax','total'
+            'issue_date','valid_until','currency','customer_address','customer_tax_id','customer_id',
+            'customer_branch_type','customer_branch_code','salesperson','reference','payment_terms',
+            'contact_name','contact_email','contact_phone','vat_mode',
+            'discount_percent','discount_amount','tax_rate','subtotal','tax','total',
+            'status'
         ] as $col) {
             if (Schema::hasColumn('quotations', $col) && array_key_exists($col,$data)) {
                 $payload[$col] = $data[$col];
@@ -154,7 +171,7 @@ class QuotationController extends Controller
             if (method_exists($q, 'items')) {
                 $rows = collect($data['items'] ?? [])
                     ->map(fn($r) => $this->normalizeItemRow($r))
-                    ->filter(fn($r) => $r['description'] !== '' || $r['qty'] > 0 || $r['price'] > 0);
+                    ->filter(fn($r) => $r['description'] !== '' || $r['qty'] > 0 || $r['price'] > 0 || $r['discount'] > 0);
 
                 foreach ($rows as $row) {
                     $q->items()->create([
@@ -171,6 +188,7 @@ class QuotationController extends Controller
             }
 
             $this->recalculateHead($q);
+            $this->storeAttachments($q, $request->file('attachments', []));
             return $q;
         });
 
@@ -204,6 +222,7 @@ class QuotationController extends Controller
     {
         $data = $request->validate([
             'number'               => ['prohibited'],
+            'customer_id'          => ['nullable','integer','exists:customers,id'],
             'customer_name'        => ['required','string','max:255'],
             'issue_date'           => ['required','date'],
             'valid_until'          => ['nullable','date','after_or_equal:issue_date'],
@@ -214,10 +233,16 @@ class QuotationController extends Controller
             'customer_branch_code' => ['nullable','string','max:50'],
             'salesperson'          => ['nullable','string','max:255'],
             'reference'            => ['nullable','string','max:255'],
+            'payment_terms'        => ['nullable','string','max:255'],
+            'contact_name'         => ['nullable','string','max:255'],
+            'contact_email'        => ['nullable','string','max:255'],
+            'contact_phone'        => ['nullable','string','max:255'],
             'discount_percent'     => ['nullable','numeric','min:0'],
+            'discount_amount'      => ['nullable','numeric','min:0'],
             'vat_enabled'          => ['nullable'],
+            'vat_mode'             => ['nullable','in:exclusive,inclusive,none'],
             'tax_rate'             => ['nullable','numeric','min:0','max:100'],
-            'status'               => ['required','in:draft,approved,rejected'],
+            'status'               => ['required','in:draft,sent,approved,rejected,cancelled'],
             // รายการ
             'items'                 => ['required','array','min:1'],
             'items.*.description'   => ['nullable','string'],
@@ -227,6 +252,8 @@ class QuotationController extends Controller
             'items.*.price'         => ['nullable','numeric','min:0'],
             'items.*.discount'      => ['nullable','numeric','min:0'],
             'items.*.unit'          => ['nullable','string','max:50'],
+            'attachments'           => ['sometimes','array'],
+            'attachments.*'         => ['file','max:12288','mimes:pdf,jpeg,jpg,png,webp,doc,docx'],
         ]);
 
         DB::transaction(function () use ($quotation, $request, $data) {
@@ -236,9 +263,10 @@ class QuotationController extends Controller
                 'status'        => $data['status'],
             ];
             foreach ([
-                'valid_until','currency','customer_address','customer_tax_id',
-                'customer_branch_type','customer_branch_code','salesperson','reference',
-                'discount_percent','tax_rate'
+                'valid_until','currency','customer_address','customer_tax_id','customer_id',
+                'customer_branch_type','customer_branch_code','salesperson','reference','payment_terms',
+                'contact_name','contact_email','contact_phone','vat_mode',
+                'discount_percent','discount_amount','tax_rate'
             ] as $col) {
                 if (Schema::hasColumn('quotations',$col) && array_key_exists($col,$data)) {
                     $payload[$col] = $data[$col];
@@ -255,7 +283,7 @@ class QuotationController extends Controller
 
                 $rows = collect($data['items'])
                     ->map(fn($r) => $this->normalizeItemRow($r))
-                    ->filter(fn($r) => $r['description'] !== '' || $r['qty'] > 0 || $r['price'] > 0);
+                    ->filter(fn($r) => $r['description'] !== '' || $r['qty'] > 0 || $r['price'] > 0 || $r['discount'] > 0);
 
                 foreach ($rows as $row) {
                     $quotation->items()->create([
@@ -272,6 +300,7 @@ class QuotationController extends Controller
             }
 
             $this->recalculateHead($quotation);
+            $this->storeAttachments($quotation, $request->file('attachments', []));
         });
 
         // ถ้าเปลี่ยนเดือน เลขอาจเปลี่ยน → refresh
@@ -348,24 +377,69 @@ class QuotationController extends Controller
     {
         $q->loadMissing('items');
 
-        $subtotal = $q->items->sum(function ($i) {
+        $lineSubtotal = $q->items->sum(function ($i) {
             $qty   = (float)($i->qty ?? $i->quantity ?? 0);
             $price = (float)($i->price ?? $i->unit_price ?? 0);
             $disc  = (float)($i->discount ?? 0);
             return ($qty * $price) - $disc;
         });
 
+        $discPct = max(0, (float)($q->discount_percent ?? 0));
+        $discAmt = max(0, (float)($q->discount_amount ?? 0));
+        $docDiscount = ($lineSubtotal * ($discPct/100)) + $discAmt;
+
+        $base = max($lineSubtotal - $docDiscount, 0);
         $taxRate = (float)($q->tax_rate ?? 0);
-        $tax = $taxRate > 0 ? round($subtotal * ($taxRate/100), 2) : 0.0;
-        $total = round($subtotal + $tax, 2);
+        $mode = $q->vat_mode ?? 'exclusive';
+        $taxEnabled = (bool)($q->vat_enabled ?? false) && $taxRate > 0 && $mode !== 'none';
+
+        $tax = 0.0;
+        $subtotal = $base;
+        $total = $base;
+
+        if ($taxEnabled) {
+            if ($mode === 'inclusive') {
+                $net = $base / (1 + ($taxRate/100));
+                $tax = round($base - $net, 2);
+                $subtotal = round($net, 2);
+                $total = round($base, 2);
+            } else { // exclusive
+                $tax = round($base * ($taxRate/100), 2);
+                $subtotal = round($base, 2);
+                $total = round($base + $tax, 2);
+            }
+        } else {
+            $subtotal = round($base, 2);
+            $total = $subtotal;
+        }
 
         $payload = [];
+        if (Schema::hasColumn('quotations','discount_amount')) $payload['discount_amount'] = $docDiscount;
         if (Schema::hasColumn('quotations','subtotal')) $payload['subtotal'] = $subtotal;
         if (Schema::hasColumn('quotations','tax'))      $payload['tax']      = $tax;
         if (Schema::hasColumn('quotations','total'))    $payload['total']    = $total;
 
         if ($payload) {
             $q->update($payload);
+        }
+    }
+
+    private function storeAttachments(Quotation $q, array $files = []): void
+    {
+        if (empty($files) || !method_exists($q, 'attachments')) {
+            return;
+        }
+
+        foreach ($files as $file) {
+            if (!$file) continue;
+            $path = $file->store('quotation_attachments', 'public');
+
+            $q->attachments()->create([
+                'path'          => $path,
+                'original_name' => $file->getClientOriginalName(),
+                'mime_type'     => $file->getMimeType(),
+                'size'          => $file->getSize(),
+            ]);
         }
     }
 

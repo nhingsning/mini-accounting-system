@@ -5,13 +5,16 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Support\Carbon;
+use App\Models\QuotationAttachment;
 
 class Quotation extends Model
 {
     protected $fillable = [
-        'number','customer_name','customer_address','customer_tax_id',
-        'customer_branch_type','customer_branch_code','salesperson',
-        'issue_date','valid_until','tax_rate','status','notes',
+        'number','customer_id','customer_name','customer_address','customer_tax_id',
+        'customer_branch_type','customer_branch_code','salesperson','reference',
+        'issue_date','valid_until','currency','tax_rate','vat_mode','vat_enabled',
+        'discount_percent','discount_amount','status','notes','payment_terms',
+        'contact_name','contact_email','contact_phone',
         'subtotal','tax','total',
         'period','month_seq',
     ];
@@ -20,7 +23,10 @@ class Quotation extends Model
     protected $casts = [
         'issue_date'  => 'date',
         'valid_until' => 'date',
+        'vat_enabled' => 'boolean',
         'tax_rate'    => 'float',
+        'discount_percent' => 'float',
+        'discount_amount'  => 'float',
         'subtotal'    => 'float',
         'tax'         => 'float',
         'total'       => 'float',
@@ -38,6 +44,11 @@ class Quotation extends Model
     public function invoice()
     {
         return $this->hasOne(\App\Models\Invoice::class);
+    }
+
+    public function attachments()
+    {
+        return $this->hasMany(QuotationAttachment::class);
     }
 
     /* ===================== Routing (URL) ===================== */
@@ -170,6 +181,15 @@ class Quotation extends Model
             $this->period    = $this->period    ?: $m[1];
             $this->month_seq = $this->month_seq ?: (int) ltrim($m[2], '0');
         }
+    }
+
+    public static function previewNextNumber(?Carbon $date = null): string
+    {
+        $period = ($date ?? now())->format('Y-m');
+        $start = (int) static::where('period', $period)->max('month_seq');
+        $seq = max($start, 0) + 1;
+
+        return sprintf('QT%s-%04d', $period, $seq);
     }
 
     /* ===================== Helpers ===================== */
