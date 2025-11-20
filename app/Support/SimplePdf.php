@@ -59,13 +59,14 @@ class SimplePdf
         $objects[] = "<< /Length ".strlen($stream)." >>\nstream\n".$stream."endstream\n";
         $objects[] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>';
 
-        $pdf = "%PDF-1.4\n";
+        $pdf = "%PDF-1.4\n%".chr(0xE2).chr(0xE3).chr(0xCF).chr(0xD3)."\n"; // binary comment to satisfy PDF readers
         $offsets = [];
         foreach ($objects as $i => $obj) {
             $offsets[$i] = strlen($pdf);
             $pdf .= ($i + 1).' 0 obj\n'.$obj."endobj\n";
         }
 
+        $pdf .= "\n"; // spacer before xref improves compatibility
         $xrefOffset = strlen($pdf);
 
         $pdf .= "xref\n";
