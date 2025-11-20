@@ -2,33 +2,38 @@
 
 @section('body')
 
+
 <style>
-:root{--brand:#4338ca;--ink:#0f172a;--muted:#6b7280;--line:#e5e7eb;--bg:#f6f7fb;--card:#ffffff}
+:root{--brand:#31689E;--ink:#0f172a;--muted:#6b7280;--line:#e5e7eb;--bg:#f8fafc;--card:#ffffff}
 body{background:var(--bg);color:var(--ink)}
-.fa-wrap{max-width:1180px;margin:0 auto;padding:18px}
-.fa-topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:12px}
-.fa-title{font-size:22px;font-weight:700;color:var(--ink);letter-spacing:-0.02em}
-.fa-actions{display:flex;gap:10px;flex-wrap:wrap}
-.fa-btn{display:inline-flex;align-items:center;gap:6px;border-radius:12px;border:1px solid var(--line);padding:10px 14px;text-decoration:none;font-weight:600;box-shadow:0 8px 20px -15px rgba(15,23,42,0.35);transition:all .15s ease}
-.fa-btn.save{background:var(--brand);color:#fff;border-color:var(--brand);box-shadow:0 10px 25px -18px rgba(67,56,202,0.8)}
+.fa-wrap{max-width:1220px;margin:0 auto;padding:18px 18px 24px}
+.fa-topbar{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;gap:16px}
+.fa-title{font-size:22px;font-weight:800;color:var(--ink);letter-spacing:-0.01em;margin-bottom:6px}
+.fa-subtitle{color:var(--muted);font-size:13px;margin-bottom:6px}
+.fa-badge{display:inline-flex;align-items:center;gap:8px;background:#e9f2fb;color:var(--brand);border:1px solid #c5dbf1;padding:4px 12px;border-radius:999px;font-weight:700;font-size:12px}
+.fa-number{font-size:18px;font-weight:800;color:var(--brand);letter-spacing:0.04em}
+.fa-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.fa-btn{display:inline-flex;align-items:center;gap:6px;border-radius:10px;border:1px solid var(--line);padding:10px 14px;text-decoration:none;font-weight:700;box-shadow:0 8px 20px -15px rgba(15,23,42,0.2);transition:all .15s ease;background:#fff;color:var(--ink)}
+.fa-btn.save{background:var(--brand);color:#fff;border-color:var(--brand);box-shadow:0 10px 25px -18px rgba(49,104,158,0.9)}
 .fa-btn.light{background:#fff;color:var(--ink)}
-.fa-btn:hover{transform:translateY(-1px);box-shadow:0 12px 28px -20px rgba(15,23,42,0.4)}
-.fa-card{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:0 16px 40px -30px rgba(15,23,42,0.35)}
+.fa-btn.ghost{background:#f1f5f9;color:var(--ink);border-color:#d9e3ef}
+.fa-btn:hover{transform:translateY(-1px);box-shadow:0 12px 28px -20px rgba(15,23,42,0.35)}
+.fa-card{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:0 16px 50px -35px rgba(15,23,42,0.35)}
 .fa-grid{display:grid;grid-template-columns:1fr 320px;gap:18px}
 @media (max-width: 1024px){.fa-grid{grid-template-columns:1fr}}
 .fa-section{padding:18px 18px 20px}
 .fa-section .section-title{font-weight:700;color:var(--ink);font-size:15px;margin-bottom:10px;display:flex;align-items:center;gap:8px}
 .fa-meta dl{display:grid;grid-template-columns:130px 1fr;gap:10px 12px;margin:0}
 .fa-meta dt{color:var(--muted);font-weight:600} .fa-meta dd{margin:0;font-weight:700}
-.fa-label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.02em}
+.fa-label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em;font-weight:700}
 .fa-input,.fa-textarea,.fa-select{width:100%;background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:14px;transition:border-color .12s,box-shadow .12s}
-.fa-input:focus,.fa-textarea:focus,.fa-select:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px rgba(67,56,202,.08)}
+.fa-input:focus,.fa-textarea:focus,.fa-select:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px rgba(49,104,158,.08)}
 .fa-textarea{min-height:92px}
 .fa-two{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:6px}
 .fa-two .span-2{grid-column:1/-1}
 @media (max-width: 768px){.fa-two{grid-template-columns:1fr}}
 .fa-table{width:100%;border-collapse:separate;border-spacing:0 0;border:1px solid var(--line);border-radius:12px;overflow:hidden}
-.fa-table thead th{background:#eef2ff;color:#1f2937;border:0;padding:10px 12px;font-weight:700}
+.fa-table thead th{background:#edf4fb;color:#1f2937;border:0;padding:10px 12px;font-weight:800}
 .fa-table tbody td{background:#fff;border-bottom:1px solid var(--line);padding:10px 12px;vertical-align:middle}
 .fa-table .no{width:64px;text-align:center;color:var(--muted)}
 .fa-table .qty,.fa-table .price,.fa-table .line{text-align:right;width:140px}
@@ -47,21 +52,41 @@ body{background:var(--bg);color:var(--ink)}
 .helper{color:var(--muted);font-size:12px;margin-top:4px}
 </style>
 
+
 @php
   $quotation = $quotation ?? null; // กัน null เวลาใช้ร่วมกับหน้า create
-  $number   = $nextNumber ?? $provisionalNumber ?? 'QT'.now()->format('Ymd').'-????';
-  $taxRate  = old('tax_rate', 0);
-  $rows     = old('items', [['id'=>null,'description'=>'','quantity'=>1,'unit_price'=>0]]);
+  $isEdit   = optional($quotation)->exists;
+  $formAction = $isEdit ? route('quotations.update', $quotation) : route('quotations.store');
+  $number   = $quotation->number ?? $nextNumber ?? $provisionalNumber ?? 'QT'.now()->format('Ymd').'-????';
+  $status   = old('status', optional($quotation)->status ?? 'draft');
+  $taxRate  = old('tax_rate', optional($quotation)->tax_rate ?? 0);
+  $existingItems = collect(optional($quotation)->items ?? [])->map(function($it){
+    return [
+      'id'          => $it->id,
+      'description' => $it->description,
+      'quantity'    => $it->quantity ?? $it->qty ?? 1,
+      'unit_price'  => $it->unit_price ?? $it->price ?? 0,
+      'discount'    => $it->discount ?? 0,
+    ];
+  })->toArray();
+  $rows     = old('items', $existingItems ?: [['id'=>null,'description'=>'','quantity'=>1,'unit_price'=>0]]);
 @endphp
 
 <div class="fa-wrap">
-    <div class="fa-topbar">
-    <div class="fa-title">Create Quotation</div>
+  <div class="fa-topbar">
+    <div>
+      <div class="fa-subtitle">Quotation</div>
+      <div class="fa-title">{{ $isEdit ? 'แก้ไขใบเสนอราคา' : 'สร้างใบเสนอราคา' }}</div>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <span class="fa-number">{{ $number }}</span>
+        <span class="fa-badge">{{ strtoupper($status) }}</span>
+      </div>
+    </div>
     <div class="fa-actions">
-      <a href="{{ route('quotations.index') }}" class="fa-btn light">Close</a>
-      <button type="button" class="fa-btn light" id="previewBtn">Preview</button>
-      <button type="button" class="fa-btn light" data-status="draft" id="draftBtn">Save Draft</button>
-      <button type="button" class="fa-btn save" data-status="sent" id="finalBtn">Confirm &amp; Lock</button>
+      <a href="{{ route('quotations.index') }}" class="fa-btn ghost">ย้อนกลับ</a>
+      <button type="button" class="fa-btn light" id="previewBtn">พรีวิว</button>
+      <button type="button" class="fa-btn light" data-status="draft" id="draftBtn">{{ $isEdit ? 'บันทึกเป็นร่าง' : 'บันทึกแบบร่าง' }}</button>
+      <button type="button" class="fa-btn save" data-status="sent" id="finalBtn">{{ $isEdit ? 'บันทึกการแก้ไข' : 'บันทึก &amp; ส่ง' }}</button>
     </div>
   </div>
 
@@ -80,9 +105,12 @@ body{background:var(--bg);color:var(--ink)}
     <div class="alert alert-success" role="alert">{{ session('ok') }}</div>
   @endif
 
-  <form id="qForm" method="POST" action="{{ route('quotations.store') }}" autocomplete="off" enctype="multipart/form-data">
+  <form id="qForm" method="POST" action="{{ $formAction }}" autocomplete="off" enctype="multipart/form-data">
     @csrf
-    <input type="hidden" name="status" id="statusInput" value="{{ old('status','draft') }}">
+    @if($isEdit)
+      @method('PUT')
+    @endif
+    <input type="hidden" name="status" id="statusInput" value="{{ $status }}">
     <input type="hidden" name="customer_id" id="customer_id_hidden" value="{{ old('customer_id', optional($quotation)->customer_id) }}">
 
     <div class="fa-grid">

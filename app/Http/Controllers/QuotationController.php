@@ -345,9 +345,9 @@ class QuotationController extends Controller
             $quotation->load(['items' => fn($q) => $q->orderBy('id')]);
         }
 
-        // ส่ง option ไปให้เหมือนหน้า create เพื่อให้ฟอร์มขึ้นครบ
+        // ใช้เลย์เอาต์เดียวกับหน้า create เพื่อให้ UI สอดคล้อง
         return view(
-            'quotations.edit',
+            'quotations.create',
             $this->formMeta() + [
                 'quotation' => $quotation,
             ]
