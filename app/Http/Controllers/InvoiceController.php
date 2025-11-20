@@ -52,6 +52,7 @@ class InvoiceController extends Controller
     {
         $data = $request->validate([
             'number'               => ['nullable','string','max:255', Rule::unique('invoices','number')],
+            'quotation_number'     => 'nullable|string|max:255',
             'customer_id'          => 'nullable|integer|exists:customers,id',
             'customer_name'        => 'required|string|max:255',
             'customer_address'     => 'nullable|string',
@@ -103,6 +104,7 @@ class InvoiceController extends Controller
 
         $data = $request->validate([
             'number'        => ['nullable','string','max:255', Rule::unique('invoices','number')->ignore($invoice->id)],
+            'quotation_number' => 'nullable|string|max:255',
             'customer_name' => 'required|string|max:255',
             'issue_date'    => 'nullable|date',
             'status'        => 'required|string|max:50',

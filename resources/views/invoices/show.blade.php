@@ -17,8 +17,9 @@
                ((strtolower($invoice->status ?? '')==='cancelled') ? 'text-bg-danger' : 'text-bg-warning') }}">
             {{ ucfirst($invoice->status ?? 'Unpaid') }}
           </span>
-          @if($invoice->quotation)
-            <span class="badge text-bg-primary ms-2">From {{ $invoice->quotation->number ?? ('QT#'.$invoice->quotation->id) }}</span>
+          @php $quoteRef = $invoice->quotation->number ?? $invoice->quotation_number ?? ($invoice->quotation?->id ? 'QT#'.$invoice->quotation->id : null); @endphp
+          @if($quoteRef)
+            <span class="badge text-bg-primary ms-2">From {{ $quoteRef }}</span>
           @endif
         </h2>
       <div class="ms-auto d-flex gap-2">
@@ -58,9 +59,10 @@
               <div class="row g-3 mt-1">
                 <div class="col-md-6">
                   <div class="mini">Quotation</div>
-                  @if($invoice->quotation)
-                    <a href="{{ route('quotations.show', $invoice->quotation->number ?? $invoice->quotation->id) }}" class="fw-semibold text-decoration-none">
-                      {{ $invoice->quotation->number ?? ('QT#'.$invoice->quotation->id) }}
+                  @php $quoteNumber = $invoice->quotation?->number ?? $invoice->quotation_number ?? ($invoice->quotation?->id ? 'QT#'.$invoice->quotation->id : null); @endphp
+                  @if($quoteNumber)
+                    <a href="{{ route('quotations.show', $invoice->quotation->number ?? $invoice->quotation_number ?? $invoice->quotation->id) }}" class="fw-semibold text-decoration-none">
+                      {{ $quoteNumber }}
                     </a>
                   @else
                     <div class="text-muted">—</div>

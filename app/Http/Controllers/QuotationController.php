@@ -271,6 +271,10 @@ class QuotationController extends Controller
         }
 
         if ($invoice) {
+            if (Schema::hasColumn('invoices', 'quotation_number') && empty($invoice->quotation_number)) {
+                $invoice->quotation_number = $quotation->number ?? ('QT'.$quotation->id);
+                $invoice->save();
+            }
             $this->logAction($quotation, 'converted_to_invoice', 'Converted to invoice '.$invoice->number);
             return redirect()->route('invoices.show', $invoice)->with('ok','Invoice created from quotation.');
         }
@@ -628,6 +632,9 @@ class QuotationController extends Controller
             $inv->number        = $invNo;
             if (Schema::hasColumn('invoices', 'quotation_id')) {
                 $inv->quotation_id = $q->id;
+            }
+            if (Schema::hasColumn('invoices', 'quotation_number')) {
+                $inv->quotation_number = $q->number ?? ('QT'.$q->id);
             }
             $inv->customer_name = (string) $q->customer_name;
             $inv->issue_date    = ($q->issue_date ?: now())->toDateString();
