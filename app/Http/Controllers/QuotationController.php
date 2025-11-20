@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 use App\Services\InvoiceFromQuotation;
+use Dompdf\Dompdf;
+use Dompdf\Options;
 
 class QuotationController extends Controller
 {
@@ -208,6 +210,36 @@ class QuotationController extends Controller
             $quotation->load('items');
         }
         return view('quotations.show', compact('quotation'));
+    }
+
+    public function pdf(Quotation $quotation)
+    {
+        if (!class_exists(Dompdf::class)) {
+            abort(500, 'Please install dompdf/dompdf before generating PDFs.');
+        }
+
+        $quotation->loadMissing(['items' => fn ($q) => $q->orderBy('id')]);
+
+        $html = view('quotations.pdf', [
+            'quotation' => $quotation,
+        ])->render();
+
+        $options = new Options();
+        $options->set('isRemoteEnabled', true);
+        $options->set('isHtml5ParserEnabled', true);
+        $options->set('defaultFont', 'DejaVu Sans');
+
+        $dompdf = new Dompdf($options);
+        $dompdf->loadHtml($html);
+        $dompdf->setPaper('A4');
+        $dompdf->render();
+
+        $filename = ($quotation->number ?? 'quotation').'.pdf';
+
+        return response($dompdf->output(), 200, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="'.$filename.'"',
+        ]);
     }
 
     public function convertToInvoice(Quotation $quotation)

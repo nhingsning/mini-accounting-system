@@ -84,6 +84,7 @@ body{background:var(--bg)}
       @if(Route::has('quotations.edit'))
       <a href="{{ route('quotations.edit', $quotation) }}" class="fa-btn primary">Edit</a>
       @endif
+      <a href="{{ route('quotations.pdf', $quotation) }}" class="fa-btn light" target="_blank">PDF</a>
       <form action="{{ route('quotations.convert.invoice', $quotation) }}" method="POST" style="display:inline">
         @csrf
         <button class="fa-btn light" type="submit">สร้าง Invoice จากใบนี้</button>

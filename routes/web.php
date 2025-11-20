@@ -74,6 +74,8 @@ Route::get('/', fn () => redirect()->route('invoices.index'))
 */
 Route::patch('/quotations/{quotation}/autosave', [QuotationController::class, 'autosave'])
     ->name('quotations.autosave');
+Route::get('/quotations/{quotation}/pdf', [QuotationController::class, 'pdf'])
+    ->name('quotations.pdf');
 
 Route::resource('invoices', InvoiceController::class)
     ->only(['index','create','store','show','edit','update','destroy']);
