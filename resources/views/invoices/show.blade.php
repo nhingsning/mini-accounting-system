@@ -10,14 +10,17 @@
       <button id="menuToggle" class="btn btn-soft rounded-circle p-2 d-lg-none" aria-label="Menu">
         <i class="bi bi-list"></i>
       </button>
-      <h2 class="m-0">
-        {{ $invoice->number ?? ('Invoice #'.$invoice->id) }}
-        <span class="badge ms-2
-          {{ (strtolower($invoice->status ?? '')==='paid') ? 'text-bg-success' :
-             ((strtolower($invoice->status ?? '')==='cancelled') ? 'text-bg-danger' : 'text-bg-warning') }}">
-          {{ ucfirst($invoice->status ?? 'Unpaid') }}
-        </span>
-      </h2>
+        <h2 class="m-0">
+          {{ $invoice->number ?? ('Invoice #'.$invoice->id) }}
+          <span class="badge ms-2
+            {{ (strtolower($invoice->status ?? '')==='paid') ? 'text-bg-success' :
+               ((strtolower($invoice->status ?? '')==='cancelled') ? 'text-bg-danger' : 'text-bg-warning') }}">
+            {{ ucfirst($invoice->status ?? 'Unpaid') }}
+          </span>
+          @if($invoice->quotation)
+            <span class="badge text-bg-primary ms-2">From {{ $invoice->quotation->number ?? ('QT#'.$invoice->quotation->id) }}</span>
+          @endif
+        </h2>
       <div class="ms-auto d-flex gap-2">
         <a href="{{ route('invoices.index') }}" class="btn btn-light"><i class="bi bi-arrow-left"></i> Back</a>
         @if(Route::has('invoices.edit'))
@@ -49,6 +52,19 @@
                   <div class="fw-semibold">
                     {{ $invoice->due_date ? \Carbon\Carbon::parse($invoice->due_date)->format('M d, Y') : '—' }}
                   </div>
+                </div>
+              </div>
+
+              <div class="row g-3 mt-1">
+                <div class="col-md-6">
+                  <div class="mini">Quotation</div>
+                  @if($invoice->quotation)
+                    <a href="{{ route('quotations.show', $invoice->quotation->number ?? $invoice->quotation->id) }}" class="fw-semibold text-decoration-none">
+                      {{ $invoice->quotation->number ?? ('QT#'.$invoice->quotation->id) }}
+                    </a>
+                  @else
+                    <div class="text-muted">—</div>
+                  @endif
                 </div>
               </div>
 
