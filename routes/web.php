@@ -82,6 +82,8 @@ Route::resource('invoices', InvoiceController::class)
 
 Route::resource('quotations', QuotationController::class)
     ->only(['index','create','store','show','edit','update','destroy']);
+Route::post('/quotations/{quotation}/copy', [QuotationController::class, 'copy'])
+    ->name('quotations.copy');
 Route::post('/quotations/{quotation}/convert/invoice', [QuotationController::class,'convertToInvoice'])->name('quotations.convert.invoice');
 Route::post('/quotations/{quotation}/convert/po', [QuotationController::class,'convertToPo'])->name('quotations.convert.po');
 

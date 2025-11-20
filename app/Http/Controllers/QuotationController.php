@@ -6,6 +6,7 @@ use App\Models\Quotation;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Invoice as PurchaseOrder;
+use App\Models\QuotationLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -202,6 +203,8 @@ class QuotationController extends Controller
             return $q;
         });
 
+        $this->logAction($quotation, 'created', 'Created quotation '.$quotation->number);
+
         return redirect()->route('quotations.show', $quotation)->with('ok', 'Created.');
     }
 
@@ -264,6 +267,7 @@ class QuotationController extends Controller
         }
 
         if ($invoice) {
+            $this->logAction($quotation, 'converted_to_invoice', 'Converted to invoice '.$invoice->number);
             return redirect()->route('invoices.show', $invoice)->with('ok','Invoice created from quotation.');
         }
 
@@ -275,9 +279,64 @@ class QuotationController extends Controller
         $quotation->loadMissing('items');
         $po = $this->inlineCreatePurchaseOrder($quotation);
         if ($po) {
+            $this->logAction($quotation, 'converted_to_po', 'Converted to PO '.$po->number);
             return redirect()->route('invoices.show', $po)->with('ok','สร้าง PO จาก Quotation แล้ว');
         }
         return back()->with('error','ไม่สามารถสร้าง PO ได้');
+    }
+
+    public function copy(Quotation $quotation)
+    {
+        $quotation->loadMissing(['items','attachments']);
+
+        $duplicate = DB::transaction(function () use ($quotation) {
+            $new = $quotation->replicate();
+            $new->number = null;
+            $new->period = null;
+            $new->month_seq = null;
+            $new->status = 'draft';
+            $new->issue_date = now();
+            $new->save();
+
+            if (method_exists($quotation, 'items')) {
+                foreach ($quotation->items as $item) {
+                    $attributes = [
+                        'description' => (string) ($item->description ?? ''),
+                        'qty'         => (float) ($item->qty ?? $item->quantity ?? 0),
+                        'quantity'    => (float) ($item->qty ?? $item->quantity ?? 0),
+                        'unit_price'  => (float) ($item->price ?? $item->unit_price ?? 0),
+                        'price'       => (float) ($item->price ?? $item->unit_price ?? 0),
+                        'line_total'  => (float) ($item->line_total ?? 0),
+                        'unit'        => $item->unit ?? null,
+                    ];
+
+                    if (Schema::hasColumn('quote_items', 'discount')) {
+                        $attributes['discount'] = (float) ($item->discount ?? 0);
+                    }
+
+                    $new->items()->create($attributes);
+                }
+            }
+
+            if (method_exists($quotation, 'attachments')) {
+                foreach ($quotation->attachments as $att) {
+                    $new->attachments()->create([
+                        'path'          => $att->path,
+                        'original_name' => $att->original_name,
+                        'mime_type'     => $att->mime_type,
+                        'size'          => $att->size,
+                    ]);
+                }
+            }
+
+            $this->recalculateHead($new);
+
+            return $new;
+        });
+
+        $this->logAction($duplicate, 'copied', 'Copied from '.$quotation->number.' to '.$duplicate->number);
+
+        return redirect()->route('quotations.edit', $duplicate)->with('ok', 'Copied from '.$quotation->number);
     }
 
     public function edit(Quotation $quotation)
@@ -390,6 +449,12 @@ class QuotationController extends Controller
         // ถ้าเปลี่ยนเดือน เลขอาจเปลี่ยน → refresh
         $quotation->refresh();
 
+        $this->logAction(
+            $quotation,
+            'updated',
+            'Updated quotation (status: '.($quotation->status ?? 'draft').', total: '.number_format((float)($quotation->total ?? 0), 2).')'
+        );
+
         // ถ้า Approved → แปลงเป็น Invoice
         if (($quotation->status ?? 'draft') === 'approved') {
             $invoice = null;
@@ -430,6 +495,7 @@ class QuotationController extends Controller
 
     public function destroy(Quotation $quotation)
     {
+        $this->logAction($quotation, 'deleted', 'Deleted quotation '.$quotation->number);
         DB::transaction(function () use ($quotation) {
             if (method_exists($quotation,'items')) {
                 $quotation->items()->delete();
@@ -657,5 +723,30 @@ class QuotationController extends Controller
 
             return $po->fresh('items');
         });
+    }
+
+    private function logAction(Quotation $quotation, string $action, ?string $description = null): void
+    {
+        if (!Schema::hasTable('quotation_logs')) {
+            return;
+        }
+
+        $payload = [
+            'quotation_id' => $quotation->id,
+            'action'       => $action,
+            'description'  => $description,
+        ];
+
+        try {
+            $user = auth()->user();
+            if ($user) {
+                $payload['user_id'] = $user->id;
+                $payload['user_name'] = $user->name ?? $user->email ?? ('user#'.$user->id);
+            }
+        } catch (\Throwable $e) {
+            // auth guard not available; skip user info
+        }
+
+        QuotationLog::create($payload);
     }
 }

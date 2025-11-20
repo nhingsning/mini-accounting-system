@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Support\Carbon;
 use App\Models\QuotationAttachment;
+use App\Models\QuotationLog;
 
 class Quotation extends Model
 {
@@ -49,6 +50,11 @@ class Quotation extends Model
     public function attachments()
     {
         return $this->hasMany(QuotationAttachment::class);
+    }
+
+    public function logs()
+    {
+        return $this->hasMany(QuotationLog::class);
     }
 
     /* ===================== Routing (URL) ===================== */

@@ -72,6 +72,30 @@ class DashboardController extends Controller
             ->selectRaw('CASE WHEN total<0 THEN "General" ELSE "Other" END as label, SUM(ABS(total)) as amount')
             ->groupBy('label')->orderByDesc('amount')->limit(6)->get();
 
+        // ===== Quotations overview =====
+        $quoteDateCol = Schema::hasTable('quotations')
+            ? $this->pickDateColumn('quotations', ['issue_date','created_at'])
+            : null;
+
+        $quotations = collect();
+        if ($quoteDateCol) {
+            $quotations = DB::table('quotations')
+                ->select('id','number','customer_name','status','total', $quoteDateCol.' as d')
+                ->orderByDesc($quoteDateCol)
+                ->limit(20)
+                ->get();
+        }
+
+        $history = collect();
+        if (Schema::hasTable('quotation_logs')) {
+            $history = DB::table('quotation_logs as l')
+                ->leftJoin('quotations as q', 'q.id', '=', 'l.quotation_id')
+                ->select('l.id','l.action','l.description','l.user_name','l.created_at','q.number','q.customer_name')
+                ->orderByDesc('l.created_at')
+                ->limit(12)
+                ->get();
+        }
+
         return view('dashboard', [
             'chartMonths' => ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
             'barData'     => $barData,
@@ -84,6 +108,8 @@ class DashboardController extends Controller
             'recent'      => $recent,
             'breakdown'   => $breakdown,
             'periodText'  => $fromY->format('M d, Y').' – '.$today->format('M d, Y'),
+            'quotations'  => $quotations,
+            'history'     => $history,
         ]);
     }
 
