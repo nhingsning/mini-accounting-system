@@ -489,7 +489,9 @@ class QuotationController extends Controller
      */
     private function inlineCreateInvoice(Quotation $q): ?Invoice
     {
-        if (method_exists($q, 'invoice') && $q->invoice) {
+        $hasLinkColumn = Schema::hasColumn('invoices', 'quotation_id');
+
+        if ($hasLinkColumn && method_exists($q, 'invoice') && $q->invoice) {
             return $q->invoice->fresh('items');
         }
 
