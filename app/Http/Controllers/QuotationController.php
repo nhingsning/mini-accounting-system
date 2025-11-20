@@ -165,7 +165,7 @@ class QuotationController extends Controller
             $payload['issue_date'] = now();
         }
 
-        $quotation = DB::transaction(function () use ($payload, $data) {
+        $quotation = DB::transaction(function () use ($payload, $data, $request) {
             /** @var \App\Models\Quotation $q */
             $q = Quotation::create($payload); // Model จะ assign number เองตอน creating()
 
