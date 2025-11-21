@@ -46,40 +46,41 @@ class SimplePdf
         $lines[] = 'Total: '.number_format($total, 2);
 
         // --- Build a minimal PDF document ---
-        $stream = "BT\n/F1 12 Tf\n50 780 Td\n";
+        $nl = "\r\n";
+        $stream = "BT{$nl}/F1 12 Tf{$nl}50 780 Td{$nl}";
         foreach ($lines as $line) {
-            $stream .= '('.self::escapeText($line).") Tj\n0 -18 Td\n";
+            $stream .= '('.self::escapeText($line).") Tj{$nl}0 -18 Td{$nl}";
         }
-        $stream .= "ET\n";
+        $stream .= "ET{$nl}";
 
         $objects = [];
         $objects[] = '<< /Type /Catalog /Pages 2 0 R >>';
         $objects[] = '<< /Type /Pages /Kids [3 0 R] /Count 1 >>';
         $objects[] = '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>';
-        $objects[] = "<< /Length ".strlen($stream)." >>\nstream\n".$stream."endstream\n";
+        $objects[] = "<< /Length ".strlen($stream)." >>{$nl}stream{$nl}".$stream."endstream{$nl}";
         $objects[] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>';
 
-        $pdf = "%PDF-1.4\n%".chr(0xE2).chr(0xE3).chr(0xCF).chr(0xD3)."\n"; // binary comment to satisfy PDF readers
+        $pdf = "%PDF-1.4{$nl}%".chr(0xE2).chr(0xE3).chr(0xCF).chr(0xD3).$nl; // binary comment to satisfy PDF readers
         $offsets = [];
         foreach ($objects as $i => $obj) {
             $offsets[$i] = strlen($pdf);
-            $pdf .= ($i + 1).' 0 obj\n'.$obj."endobj\n";
+            $pdf .= ($i + 1).' 0 obj'.$nl.$obj."endobj{$nl}";
         }
 
-        $pdf .= "\n"; // spacer before xref improves compatibility
+        $pdf .= $nl; // spacer before xref improves compatibility
         $xrefOffset = strlen($pdf);
 
-        $pdf .= "xref\n";
-        $pdf .= "0 ".(count($objects) + 1)."\n";
-        $pdf .= "0000000000 65535 f \n";
+        $pdf .= 'xref'.$nl;
+        $pdf .= '0 '.(count($objects) + 1).$nl;
+        $pdf .= '0000000000 65535 f '.$nl;
         foreach ($offsets as $off) {
-            $pdf .= sprintf("%010d 00000 n \n", $off);
+            $pdf .= sprintf('%010d 00000 n '.$nl, $off);
         }
 
-        $pdf .= "trailer\n";
-        $pdf .= "<< /Size ".(count($objects) + 1)." /Root 1 0 R >>\n";
-        $pdf .= "startxref\n".$xrefOffset."\n";
-        $pdf .= "%%EOF\n";
+        $pdf .= 'trailer'.$nl;
+        $pdf .= '<< /Size '.(count($objects) + 1).' /Root 1 0 R >>'.$nl;
+        $pdf .= 'startxref'.$nl.$xrefOffset.$nl;
+        $pdf .= '%%EOF'.$nl;
 
         return $pdf;
     }

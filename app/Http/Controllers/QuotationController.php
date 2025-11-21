@@ -248,7 +248,16 @@ class QuotationController extends Controller
 
         $filename = ($quotation->number ?? 'quotation').'.pdf';
 
-        return response($payload, 200, [
+        // เขียนไฟล์ลง storage แล้วเสิร์ฟด้วย response()->file เพื่อ header ถูกต้อง
+        $dir = storage_path('app/quotations');
+        if (!is_dir($dir)) {
+            mkdir($dir, 0775, true);
+        }
+
+        $path = $dir.'/'.$filename;
+        file_put_contents($path, $payload);
+
+        return response()->file($path, [
             'Content-Type'        => 'application/pdf',
             'Content-Disposition' => 'inline; filename="'.$filename.'"',
         ]);
