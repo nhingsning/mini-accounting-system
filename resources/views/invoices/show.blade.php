@@ -24,8 +24,8 @@
         </h2>
       <div class="ms-auto d-flex gap-2">
         <a href="{{ route('invoices.index') }}" class="btn btn-light"><i class="bi bi-arrow-left"></i> Back</a>
-        @php $approved = strtolower($invoice->status ?? '') === 'approved'; @endphp
-        @if($approved)
+        @php $status = strtolower($invoice->status ?? ''); @endphp
+        @if(($status === 'paid' || $status === 'approved') && ($receiptsAvailable ?? false))
           @if($invoice->receipt)
             <a href="{{ route('receipts.show', $invoice->receipt->number ?? $invoice->receipt->id) }}" class="btn btn-light">
               <i class="bi bi-journal-check"></i> View Receipt

@@ -80,4 +80,15 @@ class Invoice extends Model
         });
     }
 
+    /**
+     * จำกัดผลลัพธ์ให้เป็นใบแจ้งหนี้ (ไม่รวม PO ที่แชร์ตาราง invoices)
+     */
+    public function scopeOnlyInvoices($q)
+    {
+        return $q->where(function ($qq) {
+            $qq->whereNull('number')
+                ->orWhere('number', 'not like', 'PO%');
+        });
+    }
+
 }

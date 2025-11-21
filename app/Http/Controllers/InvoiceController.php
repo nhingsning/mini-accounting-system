@@ -15,6 +15,7 @@ class InvoiceController extends Controller
         $q = request('q');
 
         $invoices = Invoice::query()
+            ->onlyInvoices()
             ->when($q, function ($query) use ($q) {
                 $query->where(function ($w) use ($q) {
                     $w->where('number','like',"%{$q}%")
@@ -34,9 +35,11 @@ class InvoiceController extends Controller
     // ===== Helpers =====
     private function findByKey(string $key): Invoice
     {
+        $invoiceQuery = Invoice::query()->onlyInvoices();
+
         $invoice = ctype_digit($key)
-            ? Invoice::find($key)
-            : Invoice::where('number',$key)->first();
+            ? $invoiceQuery->whereKey($key)->first()
+            : $invoiceQuery->where('number',$key)->first();
 
         abort_unless($invoice, 404, 'Invoice not found');
         return $invoice;
@@ -87,14 +90,16 @@ class InvoiceController extends Controller
     public function show(string $key)
     {
         $invoice = $this->findByKey($key);
+        $receiptsAvailable = Schema::hasTable('receipts');
 
-        if (Schema::hasTable('receipts')) {
+        if ($receiptsAvailable) {
             $invoice->loadMissing('quotation', 'receipt');
         } else {
             $invoice->loadMissing('quotation');
             $invoice->setRelation('receipt', null);
         }
-        return view('invoices.show', compact('invoice'));
+
+        return view('invoices.show', compact('invoice', 'receiptsAvailable'));
     }
 
     // ===== Edit form (HTML view) =====
