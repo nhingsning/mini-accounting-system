@@ -9,6 +9,9 @@
     <a class="nav-link {{ request()->routeIs('invoices.*') ? 'active' : '' }}" href="{{ route('invoices.index') }}">
       <i class="bi bi-receipt"></i>Invoices
     </a>
+    <a class="nav-link {{ request()->routeIs('receipts.*') ? 'active' : '' }}" href="{{ route('receipts.index') }}">
+      <i class="bi bi-journal-check"></i>Receipts
+    </a>
     <a class="nav-link {{ request()->routeIs('po.*') ? 'active' : '' }}" href="{{ route('po.index') }}">
       <i class="bi bi-file-earmark-arrow-down"></i>PO
     </a>

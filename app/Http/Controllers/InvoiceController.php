@@ -86,7 +86,7 @@ class InvoiceController extends Controller
     public function show(string $key)
     {
         $invoice = $this->findByKey($key);
-        $invoice->loadMissing('quotation');
+        $invoice->loadMissing('quotation', 'receipt');
         return view('invoices.show', compact('invoice'));
     }
 

@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\ReceiptController;
 use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\QuotationController;
 use App\Http\Controllers\CustomersController;   // <-- เพิ่มอันนี้ (พหูพจน์) สำหรับ API
@@ -81,6 +82,9 @@ Route::get('/quotations/{quotation}/pdf', [QuotationController::class, 'pdf'])
 Route::resource('invoices', InvoiceController::class)
     ->only(['index','create','store','show','edit','update','destroy']);
 
+Route::post('/invoices/{invoice}/convert/receipt', [ReceiptController::class, 'fromInvoice'])
+    ->name('invoices.convert.receipt');
+
 Route::resource('po', PurchaseOrderController::class)
     ->only(['index','create','store','show','edit','update','destroy']);
 
@@ -105,6 +109,8 @@ Route::redirect('/quotes/{quotation}/edit', '/quotations/{quotation}/edit');
 Route::redirect('/quotes/{quotation}/pdf', '/quotations/{quotation}/pdf')->name('quotes.pdf');
 Route::redirect('/quotes/{quotation}/send', '/quotations/{quotation}/send')->name('quotes.send');
 Route::redirect('/quotes/{quotation}/convert', '/quotations/{quotation}/convert')->name('quotes.convert');
+
+Route::resource('receipts', ReceiptController::class)->only(['index','create','store','show','edit','update','destroy']);
 
 Route::get('/invoices',                [InvoiceController::class, 'index'])->name('invoices.index');
 Route::get('/invoices/{invoiceKey}',   [InvoiceController::class, 'show'])->name('invoices.show');

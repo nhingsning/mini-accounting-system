@@ -24,6 +24,19 @@
         </h2>
       <div class="ms-auto d-flex gap-2">
         <a href="{{ route('invoices.index') }}" class="btn btn-light"><i class="bi bi-arrow-left"></i> Back</a>
+        @php $approved = strtolower($invoice->status ?? '') === 'approved'; @endphp
+        @if($approved)
+          @if($invoice->receipt)
+            <a href="{{ route('receipts.show', $invoice->receipt->number ?? $invoice->receipt->id) }}" class="btn btn-light">
+              <i class="bi bi-journal-check"></i> View Receipt
+            </a>
+          @else
+            <form method="POST" action="{{ route('invoices.convert.receipt', $invoice->id) }}">
+              @csrf
+              <button class="btn btn-light" type="submit"><i class="bi bi-journal-plus"></i> Create Receipt</button>
+            </form>
+          @endif
+        @endif
         @if(Route::has('invoices.edit'))
           <a href="{{ route('invoices.edit',$invoice->id) }}" class="btn btn-brand"><i class="bi bi-pencil"></i> Edit</a>
         @endif
