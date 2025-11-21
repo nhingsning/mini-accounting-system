@@ -5,12 +5,15 @@ namespace App\Http\Controllers;
 use App\Models\Invoice;
 use App\Models\Receipt;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 
 class ReceiptController extends Controller
 {
     private function findByKey(string $key): Receipt
     {
+        abort_unless($this->receiptsEnabled(), 503, 'Receipts are not available; please run database migrations.');
+
         $receipt = ctype_digit($key)
             ? Receipt::find($key)
             : Receipt::where('number', $key)->first();
@@ -21,6 +24,10 @@ class ReceiptController extends Controller
 
     public function index()
     {
+        if (! $this->receiptsEnabled()) {
+            return redirect()->route('invoices.index')->with('error', 'Receipts table is missing. Please run database migrations.');
+        }
+
         $q = request('q');
         $receipts = Receipt::query()
             ->when($q, function ($query) use ($q) {
@@ -38,6 +45,10 @@ class ReceiptController extends Controller
 
     public function create(Request $request)
     {
+        if (! $this->receiptsEnabled()) {
+            return redirect()->route('invoices.index')->with('error', 'Receipts table is missing. Please run database migrations.');
+        }
+
         $invoice = null;
         if ($request->filled('invoice_id')) {
             $invoice = Invoice::find($request->integer('invoice_id'));
@@ -48,6 +59,10 @@ class ReceiptController extends Controller
 
     public function store(Request $request)
     {
+        if (! $this->receiptsEnabled()) {
+            return redirect()->route('invoices.index')->with('error', 'Receipts table is missing. Please run database migrations.');
+        }
+
         $data = $request->validate([
             'number' => ['nullable', 'string', 'max:255', Rule::unique('receipts', 'number')],
             'invoice_id' => ['nullable', 'integer', 'exists:invoices,id'],
@@ -72,6 +87,10 @@ class ReceiptController extends Controller
 
     public function show(string $key)
     {
+        if (! $this->receiptsEnabled()) {
+            return redirect()->route('invoices.index')->with('error', 'Receipts table is missing. Please run database migrations.');
+        }
+
         $receipt = $this->findByKey($key);
         $receipt->loadMissing('invoice');
         return view('receipts.show', compact('receipt'));
@@ -79,12 +98,20 @@ class ReceiptController extends Controller
 
     public function edit(string $key)
     {
+        if (! $this->receiptsEnabled()) {
+            return redirect()->route('invoices.index')->with('error', 'Receipts table is missing. Please run database migrations.');
+        }
+
         $receipt = $this->findByKey($key);
         return view('receipts.edit', compact('receipt'));
     }
 
     public function update(Request $request, string $key)
     {
+        if (! $this->receiptsEnabled()) {
+            return redirect()->route('invoices.index')->with('error', 'Receipts table is missing. Please run database migrations.');
+        }
+
         $receipt = $this->findByKey($key);
 
         $data = $request->validate([
@@ -111,6 +138,10 @@ class ReceiptController extends Controller
 
     public function destroy(string $key)
     {
+        if (! $this->receiptsEnabled()) {
+            return redirect()->route('invoices.index')->with('error', 'Receipts table is missing. Please run database migrations.');
+        }
+
         $receipt = $this->findByKey($key);
         $receipt->delete();
 
@@ -119,6 +150,10 @@ class ReceiptController extends Controller
 
     public function fromInvoice(string $invoiceKey)
     {
+        if (! $this->receiptsEnabled()) {
+            return redirect()->route('invoices.index')->with('error', 'Receipts table is missing. Please run database migrations.');
+        }
+
         $invoice = ctype_digit($invoiceKey)
             ? Invoice::find($invoiceKey)
             : Invoice::where('number', $invoiceKey)->first();
@@ -155,5 +190,10 @@ class ReceiptController extends Controller
         $slug = $receipt->number ?: $receipt->id;
 
         return redirect()->route('receipts.edit', $slug)->with('ok', 'Receipt drafted from invoice');
+    }
+
+    private function receiptsEnabled(): bool
+    {
+        return Schema::hasTable('receipts');
     }
 }

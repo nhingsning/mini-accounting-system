@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Invoice;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 
 class InvoiceController extends Controller
@@ -86,7 +87,13 @@ class InvoiceController extends Controller
     public function show(string $key)
     {
         $invoice = $this->findByKey($key);
-        $invoice->loadMissing('quotation', 'receipt');
+
+        if (Schema::hasTable('receipts')) {
+            $invoice->loadMissing('quotation', 'receipt');
+        } else {
+            $invoice->loadMissing('quotation');
+            $invoice->setRelation('receipt', null);
+        }
         return view('invoices.show', compact('invoice'));
     }
 
