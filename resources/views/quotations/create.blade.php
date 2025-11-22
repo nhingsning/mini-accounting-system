@@ -24,6 +24,14 @@ body{background:var(--bg)}
 .fa-two{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:6px}
 .fa-two .span-2{grid-column:1/-1}
 @media (max-width: 768px){.fa-two{grid-template-columns:1fr}}
+.customer-toolbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;padding-top:4px}
+.customer-toolbar .fa-toggle{display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:500;color:var(--muted)}
+.customer-toolbar .fa-toggle input{accent-color:var(--brand)}
+.fa-inline-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.fa-btn.micro{padding:6px 12px;font-size:13px;border-radius:8px}
+.fa-btn.ghost{background:transparent;color:var(--brand)}
+.fa-btn.ghost:hover{background:rgba(43,74,114,0.08)}
+.fa-btn[data-loading="1"]{pointer-events:none;opacity:0.7}
 .fa-table{width:100%;border-collapse:separate;border-spacing:0 0}
 .fa-table thead th{background:var(--brand);color:#fff;border:0;padding:10px 12px;font-weight:700}
 .fa-table tbody td{background:#fff;border-bottom:1px solid var(--line);padding:10px 12px;vertical-align:middle}
@@ -97,11 +105,21 @@ body{background:var(--bg)}
                 พิมพ์ค้นหา แล้วเลือกเพื่อดึงข้อมูลมาใส่อัตโนมัติ
               </div>
             </div>
-            <div class="span-2" style="display:flex;justify-content:flex-end;gap:10px">
-              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+            <div class="span-2 customer-toolbar">
+              <label class="fa-toggle">
                 <input type="checkbox" id="unlockFields">
-                <span class="fa-label" style="margin:0">ปลดล็อกเพื่อแก้ไขรายละเอียดลูกค้าในเอกสารนี้</span>
+                <span>ปลดล็อกเพื่อแก้ไขรายละเอียดลูกค้าในเอกสารนี้</span>
               </label>
+              <div class="fa-inline-actions">
+                <button type="button" class="fa-btn light micro" id="btnCreateContact">
+                  <i class="fa fa-user-plus" aria-hidden="true"></i>
+                  Create new contact
+                </button>
+                <button type="button" class="fa-btn ghost micro" id="btnSearchK75">
+                  <i class="fa fa-database" aria-hidden="true"></i>
+                  Search from the K75 database
+                </button>
+              </div>
             </div>
           </div>
           {{-- ===== /Customer Picker ===== --}}
@@ -306,6 +324,12 @@ body{background:var(--bg)}
   const searchBox  = document.getElementById('customer_search');
   const hiddenId   = document.getElementById('customer_id_hidden');
   const unlockBox  = document.getElementById('unlockFields');
+  const newContactBtn = document.getElementById('btnCreateContact');
+  const k75SearchBtn  = document.getElementById('btnSearchK75');
+  const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+                    || document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+  const K75_URL = "{{ url('/api/k75/search') }}";
 
   const fields = {
     name: document.getElementById('cust_name'),
@@ -324,10 +348,95 @@ body{background:var(--bg)}
   setLocked(true);
   unlockBox?.addEventListener('change', e=> setLocked(!e.target.checked));
 
+  function buildHeaders(){
+    const headers = {'X-Requested-With':'XMLHttpRequest'};
+    if(csrfToken){ headers['X-CSRF-TOKEN'] = csrfToken; }
+    return headers;
+  }
+
+  newContactBtn?.addEventListener('click', ()=>{
+    const evt = new CustomEvent('quotation:create-contact', {
+      cancelable: true,
+      detail: { searchTerm: searchBox?.value || '' }
+    });
+    if(window.dispatchEvent(evt) === false){
+      return;
+    }
+    window.open("{{ route('customers.create') }}", '_blank', 'noopener');
+  });
+
+  function hydrateCustomer(record){
+    if(!record) return;
+    hiddenId.value = '';
+    if(fields.name && record.name){ fields.name.value = record.name; }
+    if(fields.address && record.address){ fields.address.value = record.address; }
+    if(fields.tax && record.tax_id){ fields.tax.value = record.tax_id; }
+    if(fields.branchType){
+      const branchType = record.branch_type
+        ?? (record.is_branch === true ? 'branch'
+          : record.is_branch === false ? 'head' : '');
+      if(branchType){ fields.branchType.value = branchType; }
+    }
+    if(fields.branchCode && record.branch_code){ fields.branchCode.value = record.branch_code; }
+  }
+
+  async function searchK75(){
+    const query = (searchBox?.value || '').trim();
+    if(!query){
+      alert('กรุณากรอกคำค้นหาก่อนค้นจากฐานข้อมูล K75');
+      searchBox?.focus();
+      return;
+    }
+
+    const requestDetail = { query };
+    const beforeEvt = new CustomEvent('quotation:k75-search', { cancelable: true, detail: requestDetail });
+    if(window.dispatchEvent(beforeEvt) === false){
+      return;
+    }
+
+    const btn = k75SearchBtn;
+    if(btn){
+      btn.dataset.loading = '1';
+    }
+
+    try {
+      const res = await fetch(`${K75_URL}?q=${encodeURIComponent(query)}`, {
+        headers: buildHeaders(),
+      });
+      if(!res.ok){
+        throw new Error(`K75 search failed with status ${res.status}`);
+      }
+      const payload = await res.json();
+      window.dispatchEvent(new CustomEvent('quotation:k75-results', {
+        detail: { query, results: payload }
+      }));
+
+      if(Array.isArray(payload) && payload.length === 1){
+        hydrateCustomer(payload[0]);
+      } else if(payload && payload.name){
+        hydrateCustomer(payload);
+      } else if(Array.isArray(payload) && payload.length === 0){
+        alert('ไม่พบข้อมูลจากฐาน K75 ตามคำค้นหา');
+      }
+    } catch(err){
+      console.error(err);
+      alert('ไม่สามารถเชื่อมต่อฐานข้อมูล K75 ได้ในขณะนี้');
+    } finally {
+      if(btn){
+        delete btn.dataset.loading;
+      }
+    }
+  }
+
+  k75SearchBtn?.addEventListener('click', (e)=>{
+    e.preventDefault();
+    searchK75();
+  });
+
   async function loadCustomerOptions(q=''){
     try {
       const res = await fetch(`${OPT_URL}?q=${encodeURIComponent(q)}`, {
-        headers: {'X-Requested-With':'XMLHttpRequest'}
+        headers: buildHeaders()
       });
       if(!res.ok) throw new Error('Failed to load customer options');
       const data = await res.json();
@@ -346,7 +455,7 @@ body{background:var(--bg)}
     if(!id){ hiddenId.value=''; return; }
     try {
       const res = await fetch(`${SHOW_URL}/${id}.json`, {
-        headers: {'X-Requested-With':'XMLHttpRequest'}
+        headers: buildHeaders()
       });
       if(!res.ok) throw new Error('Customer not found');
       const c = await res.json();
