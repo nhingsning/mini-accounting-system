@@ -167,19 +167,31 @@ class InvoiceController extends Controller
         $invoice = $this->findByKey($key);
 
         $data = $request->validate([
-            'number'        => ['nullable','string','max:255', Rule::unique('invoices','number')->ignore($invoice->id)],
-            'quotation_number' => 'nullable|string|max:255',
-            'customer_name' => 'required|string|max:255',
-            'issue_date'    => 'nullable|date',
-            'status'        => ['required','string','max:50', Rule::in($this->allowedStatusValues())],
-            'total'         => 'required|numeric',
+            'number'               => ['nullable','string','max:255', Rule::unique('invoices','number')->ignore($invoice->id)],
+            'quotation_number'     => 'nullable|string|max:255',
+            'customer_id'          => 'nullable|integer|exists:customers,id',
+            'customer_name'        => 'required|string|max:255',
+            'customer_address'     => 'nullable|string',
+            'customer_tax_id'      => 'nullable|string|max:50',
+            'customer_branch_type' => 'nullable|string|max:20',
+            'customer_branch_code' => 'nullable|string|max:20',
+            'issue_date'           => 'nullable|date',
+            'due_date'             => 'nullable|date',
+            'discount_percent'     => 'nullable|numeric',
+            'vat_enabled'          => 'sometimes|boolean',
+            'tax_rate'             => 'nullable|numeric',
+            'subtotal'             => 'nullable|numeric',
+            'tax'                  => 'nullable|numeric',
+            'total'                => 'nullable|numeric',
+            'status'               => ['required','string','max:50', Rule::in($this->allowedStatusValues())],
         ]);
 
-        $data['status'] = $this->normalizeStatus($data['status']);
+        $data['vat_enabled'] = $request->boolean('vat_enabled');
+        $data['status'] = $this->normalizeStatus($data['status'] ?? $invoice->status);
+        $data['total'] = $data['total'] ?? $invoice->total;
 
         $invoice->update($data);
 
-        // ให้ redirect กลับไปหน้า show โดยใช้เลขเอกสารถ้ามี
         $slug = $invoice->number ?: $invoice->id;
         return redirect()->route('invoices.show', $slug)->with('ok','Updated');
     }

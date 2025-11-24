@@ -45,6 +45,7 @@ body{background:var(--bg)}
 .fa-btn{display:inline-flex;align-items:center;gap:6px;border-radius:12px;border:1px solid var(--line);padding:9px 14px;text-decoration:none;font-weight:700;font-size:14px}
 .fa-btn.primary{background:var(--brand);color:#fff;border-color:var(--brand);box-shadow:0 10px 24px -12px var(--brand)}
 .fa-btn.light{background:#fff;color:var(--ink)}
+.fa-btn.ghost{background:#eef2f7;color:var(--ink);border-color:#d9e3ef}
 .fa-grid{display:grid;grid-template-columns:2fr 1.05fr;gap:18px;margin-top:10px}
 @media (max-width: 1100px){.fa-grid{grid-template-columns:1fr}}
 .fa-card{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:0 14px 48px -28px rgba(0,0,0,.25)}
@@ -85,6 +86,29 @@ body{background:var(--bg)}
       <a href="{{ route('invoices.edit', $invoice->number ?? $invoice->id) }}" class="fa-btn primary">Edit</a>
       @endif
       <a href="{{ route('invoices.pdf', $invoice->number ?? $invoice->id) }}" class="fa-btn light" target="_blank">PDF</a>
+      <form action="{{ route('invoices.update', $invoice->number ?? $invoice->id) }}" method="POST" style="display:flex;gap:6px;align-items:center">
+        @csrf
+        @method('PUT')
+        <input type="hidden" name="number" value="{{ $invoice->number }}">
+        <input type="hidden" name="customer_name" value="{{ $invoice->customer_name }}">
+        <input type="hidden" name="customer_id" value="{{ $invoice->customer_id }}">
+        <input type="hidden" name="customer_address" value="{{ $invoice->customer_address }}">
+        <input type="hidden" name="customer_tax_id" value="{{ $invoice->customer_tax_id }}">
+        <input type="hidden" name="customer_branch_type" value="{{ $invoice->customer_branch_type }}">
+        <input type="hidden" name="customer_branch_code" value="{{ $invoice->customer_branch_code }}">
+        <input type="hidden" name="issue_date" value="{{ optional($invoice->issue_date)->toDateString() }}">
+        <input type="hidden" name="due_date" value="{{ optional($invoice->due_date)->toDateString() }}">
+        <input type="hidden" name="discount_percent" value="{{ $invoice->discount_percent }}">
+        <input type="hidden" name="tax_rate" value="{{ $invoice->tax_rate }}">
+        <input type="hidden" name="vat_enabled" value="{{ $invoice->vat_enabled ? 1 : 0 }}">
+        <input type="hidden" name="total" value="{{ $invoice->total }}">
+        <select name="status" class="fa-select" style="width:200px;border-radius:10px;border:1px solid var(--line);padding:8px 10px;font-weight:600;">
+          @foreach($statusLabels as $key => $label)
+            <option value="{{ $key }}" {{ $statusKey === $key ? 'selected' : '' }}>{{ $label }}</option>
+          @endforeach
+        </select>
+        <button class="fa-btn ghost" type="submit">Update Status</button>
+      </form>
       @php $status = strtolower($invoice->status ?? ''); @endphp
       @if(($status === 'paid' || $status === 'approved') && ($receiptsAvailable ?? false))
         @if($invoice->receipt)
