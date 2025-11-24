@@ -10,11 +10,26 @@ class CustomersController extends Controller
     // /api/customers/options => สำหรับ dropdown
     public function options(Request $request)
     {
-        $rows = DB::table('customers')
-            ->select('id','name')
-            ->orderBy('name')
-            ->limit(100)
-            ->get();
+        $query = DB::table('customers')
+            ->select('id', 'name as text', 'tax_id')
+            ->orderBy('name');
+
+        if ($request->filled('q')) {
+            $q = trim($request->get('q'));
+            $query->where(function ($qq) use ($q) {
+                $qq->where('name', 'like', "%{$q}%")
+                   ->orWhere('tax_id', 'like', "%{$q}%");
+            });
+        }
+
+        $rows = $query->limit(50)->get()->map(function ($row) {
+            $label = $row->text;
+            if ($row->tax_id) {
+                $label .= " ({$row->tax_id})";
+            }
+            $row->text = $label;
+            return $row;
+        });
 
         return response()->json($rows);
     }
@@ -28,6 +43,14 @@ class CustomersController extends Controller
             return response()->json(['message' => 'Not found'], 404);
         }
 
-        return response()->json($row);
+        $contact = DB::table('customer_contacts')
+            ->where('customer_id', $customerId)
+            ->orderBy('id')
+            ->first();
+
+        return response()->json([
+            'customer' => $row,
+            'contact'  => $contact,
+        ]);
     }
 }
