@@ -48,7 +48,7 @@ class ReceiptController extends Controller
 
         $invoice = null;
         if ($request->filled('invoice_id')) {
-            $invoice = Invoice::find($request->integer('invoice_id'));
+            $invoice = Invoice::with('items')->find($request->integer('invoice_id'));
         }
 
         return view('receipts.create', compact('invoice'));
@@ -94,7 +94,10 @@ class ReceiptController extends Controller
         $this->ensureReceiptsTable();
 
         $receipt = $this->findByKey($key);
-        return view('receipts.edit', compact('receipt'));
+        $receipt->loadMissing(['invoice.items']);
+        $invoice = $receipt->invoice;
+
+        return view('receipts.edit', compact('receipt', 'invoice'));
     }
 
     public function update(Request $request, string $key)
