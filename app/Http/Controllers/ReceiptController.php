@@ -146,7 +146,7 @@ class ReceiptController extends Controller
         abort_unless($invoice, 404, 'Invoice not found');
 
         $status = strtolower($invoice->status ?? '');
-        abort_if($status !== 'approved', 400, 'Invoice must be approved before issuing a receipt');
+        abort_if(!in_array($status, ['approved', 'paid'], true), 400, 'Invoice must be approved or paid before issuing a receipt');
 
         if (method_exists($invoice, 'receipt')) {
             $existing = $invoice->receipt()->first();
