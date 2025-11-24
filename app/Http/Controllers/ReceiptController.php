@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Invoice;
 use App\Models\Receipt;
 use Illuminate\Http\Request;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 
@@ -12,7 +13,7 @@ class ReceiptController extends Controller
 {
     private function findByKey(string $key): Receipt
     {
-        abort_unless($this->receiptsEnabled(), 503, 'Receipts are not available; please run database migrations.');
+        $this->ensureReceiptsTable();
 
         $receipt = ctype_digit($key)
             ? Receipt::find($key)
@@ -24,9 +25,7 @@ class ReceiptController extends Controller
 
     public function index()
     {
-        if (! $this->receiptsEnabled()) {
-            return redirect()->route('invoices.index')->with('error', 'Receipts table is missing. Please run database migrations.');
-        }
+        $this->ensureReceiptsTable();
 
         $q = request('q');
         $receipts = Receipt::query()
@@ -45,9 +44,7 @@ class ReceiptController extends Controller
 
     public function create(Request $request)
     {
-        if (! $this->receiptsEnabled()) {
-            return redirect()->route('invoices.index')->with('error', 'Receipts table is missing. Please run database migrations.');
-        }
+        $this->ensureReceiptsTable();
 
         $invoice = null;
         if ($request->filled('invoice_id')) {
@@ -59,9 +56,7 @@ class ReceiptController extends Controller
 
     public function store(Request $request)
     {
-        if (! $this->receiptsEnabled()) {
-            return redirect()->route('invoices.index')->with('error', 'Receipts table is missing. Please run database migrations.');
-        }
+        $this->ensureReceiptsTable();
 
         $data = $request->validate([
             'number' => ['nullable', 'string', 'max:255', Rule::unique('receipts', 'number')],
@@ -87,9 +82,7 @@ class ReceiptController extends Controller
 
     public function show(string $key)
     {
-        if (! $this->receiptsEnabled()) {
-            return redirect()->route('invoices.index')->with('error', 'Receipts table is missing. Please run database migrations.');
-        }
+        $this->ensureReceiptsTable();
 
         $receipt = $this->findByKey($key);
         $receipt->loadMissing('invoice');
@@ -98,9 +91,7 @@ class ReceiptController extends Controller
 
     public function edit(string $key)
     {
-        if (! $this->receiptsEnabled()) {
-            return redirect()->route('invoices.index')->with('error', 'Receipts table is missing. Please run database migrations.');
-        }
+        $this->ensureReceiptsTable();
 
         $receipt = $this->findByKey($key);
         return view('receipts.edit', compact('receipt'));
@@ -108,9 +99,7 @@ class ReceiptController extends Controller
 
     public function update(Request $request, string $key)
     {
-        if (! $this->receiptsEnabled()) {
-            return redirect()->route('invoices.index')->with('error', 'Receipts table is missing. Please run database migrations.');
-        }
+        $this->ensureReceiptsTable();
 
         $receipt = $this->findByKey($key);
 
@@ -138,9 +127,7 @@ class ReceiptController extends Controller
 
     public function destroy(string $key)
     {
-        if (! $this->receiptsEnabled()) {
-            return redirect()->route('invoices.index')->with('error', 'Receipts table is missing. Please run database migrations.');
-        }
+        $this->ensureReceiptsTable();
 
         $receipt = $this->findByKey($key);
         $receipt->delete();
@@ -150,9 +137,7 @@ class ReceiptController extends Controller
 
     public function fromInvoice(string $invoiceKey)
     {
-        if (! $this->receiptsEnabled()) {
-            return redirect()->route('invoices.index')->with('error', 'Receipts table is missing. Please run database migrations.');
-        }
+        $this->ensureReceiptsTable();
 
         $invoice = ctype_digit($invoiceKey)
             ? Invoice::find($invoiceKey)
@@ -192,8 +177,30 @@ class ReceiptController extends Controller
         return redirect()->route('receipts.edit', $slug)->with('ok', 'Receipt drafted from invoice');
     }
 
-    private function receiptsEnabled(): bool
+    private function ensureReceiptsTable(): bool
     {
-        return Schema::hasTable('receipts');
+        if (Schema::hasTable('receipts')) {
+            return true;
+        }
+
+        Schema::create('receipts', function (Blueprint $table) {
+            $table->id();
+            $table->string('number')->nullable()->unique();
+            $table->unsignedBigInteger('invoice_id')->nullable();
+            $table->string('invoice_number')->nullable();
+            $table->unsignedBigInteger('customer_id')->nullable();
+            $table->string('customer_name');
+            $table->text('customer_address')->nullable();
+            $table->string('customer_tax_id')->nullable();
+            $table->string('customer_branch_type')->nullable();
+            $table->string('customer_branch_code')->nullable();
+            $table->date('issue_date')->nullable();
+            $table->decimal('total', 12, 2)->default(0);
+            $table->string('status')->default('draft');
+            $table->string('currency')->nullable();
+            $table->timestamps();
+        });
+
+        return true;
     }
 }
