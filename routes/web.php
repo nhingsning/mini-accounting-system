@@ -114,5 +114,6 @@ Route::resource('receipts', ReceiptController::class)->only(['index','create','s
 
 Route::get('/invoices',                [InvoiceController::class, 'index'])->name('invoices.index');
 Route::get('/invoices/{invoiceKey}',   [InvoiceController::class, 'show'])->name('invoices.show');
+Route::get('/invoices/{invoiceKey}/pdf', [InvoiceController::class, 'pdf'])->name('invoices.pdf');
 Route::get('/invoices/{invoiceKey}/edit', [InvoiceController::class, 'edit'])->name('invoices.edit');
 Route::put('/invoices/{invoiceKey}',   [InvoiceController::class, 'update'])->name('invoices.update');

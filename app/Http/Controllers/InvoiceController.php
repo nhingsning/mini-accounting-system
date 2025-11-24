@@ -3,6 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Invoice;
+use App\Support\SimplePdf;
+use Dompdf\Dompdf;
+use Dompdf\Options;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
@@ -92,14 +95,57 @@ class InvoiceController extends Controller
         $invoice = $this->findByKey($key);
         $receiptsAvailable = Schema::hasTable('receipts');
 
+        $relations = ['items' => fn ($q) => $q->orderBy('id'), 'quotation'];
         if ($receiptsAvailable) {
-            $invoice->loadMissing('quotation', 'receipt');
-        } else {
-            $invoice->loadMissing('quotation');
+            $relations[] = 'receipt';
+        }
+
+        $invoice->loadMissing($relations);
+        if (!$receiptsAvailable) {
             $invoice->setRelation('receipt', null);
         }
 
         return view('invoices.show', compact('invoice', 'receiptsAvailable'));
+    }
+
+    public function pdf(string $key)
+    {
+        $invoice = $this->findByKey($key);
+        $invoice->loadMissing([
+            'items' => fn ($q) => $q->orderBy('id'),
+            'quotation',
+        ]);
+
+        if (class_exists(Dompdf::class)) {
+            $html = view('invoices.pdf', ['invoice' => $invoice])->render();
+
+            $options = new Options();
+            $options->set('isRemoteEnabled', true);
+            $options->set('isHtml5ParserEnabled', true);
+            $options->set('defaultFont', 'DejaVu Sans');
+
+            $dompdf = new Dompdf($options);
+            $dompdf->loadHtml($html);
+            $dompdf->setPaper('A4');
+            $dompdf->render();
+
+            $payload = $dompdf->output();
+        } else {
+            $payload = SimplePdf::invoice($invoice);
+        }
+
+        $filename = ($invoice->number ?? 'invoice').'.pdf';
+        $dir = storage_path('app/invoices');
+        if (!is_dir($dir)) {
+            mkdir($dir, 0775, true);
+        }
+        $path = $dir.'/'.$filename;
+        file_put_contents($path, $payload);
+
+        return response()->file($path, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="'.$filename.'"',
+        ]);
     }
 
     // ===== Edit form (HTML view) =====
