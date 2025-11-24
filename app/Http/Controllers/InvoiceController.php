@@ -3,7 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\Invoice;
+use App\Support\SimplePdf;
+use Dompdf\Dompdf;
+use Dompdf\Options;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\Rule;
 
 class InvoiceController extends Controller
 {
@@ -13,6 +18,7 @@ class InvoiceController extends Controller
         $q = request('q');
 
         $invoices = Invoice::query()
+            ->onlyInvoices()
             ->when($q, function ($query) use ($q) {
                 $query->where(function ($w) use ($q) {
                     $w->where('number','like',"%{$q}%")
@@ -32,35 +38,129 @@ class InvoiceController extends Controller
     // ===== Helpers =====
     private function findByKey(string $key): Invoice
     {
+        $invoiceQuery = Invoice::query()->onlyInvoices();
+
         $invoice = ctype_digit($key)
-            ? Invoice::find($key)
-            : Invoice::where('number',$key)->first();
+            ? $invoiceQuery->whereKey($key)->first()
+            : $invoiceQuery->where('number',$key)->first();
 
         abort_unless($invoice, 404, 'Invoice not found');
         return $invoice;
     }
 
-<<<<<<< HEAD
-    // ===== Show (HTML view) =====
-    public function show(string $key)
-=======
-    public function show(Invoice $invoice)
+    // ===== Create form (HTML view) =====
+    public function create()
     {
-        return redirect()->route('invoices.edit', $invoice);
+        return view('invoices.create', [
+            'statusOptions' => $this->statusOptions(),
+        ]);
     }
 
+    // ===== Store action =====
     public function store(Request $request)
->>>>>>> 31866941e8e10f3e8320fc8f3e315afac769fadc
+    {
+        $data = $request->validate([
+            'number'               => ['nullable','string','max:255', $this->invoiceNumberRule()],
+            'quotation_number'     => 'nullable|string|max:255',
+            'customer_id'          => 'nullable|integer|exists:customers,id',
+            'customer_name'        => 'required|string|max:255',
+            'customer_address'     => 'nullable|string',
+            'customer_tax_id'      => 'nullable|string|max:50',
+            'customer_branch_type' => 'nullable|string|max:20',
+            'customer_branch_code' => 'nullable|string|max:20',
+            'issue_date'           => 'nullable|date',
+            'due_date'             => 'nullable|date',
+            'discount_percent'     => 'nullable|numeric',
+            'vat_enabled'          => 'sometimes|boolean',
+            'tax_rate'             => 'nullable|numeric',
+            'subtotal'             => 'nullable|numeric',
+            'tax'                  => 'nullable|numeric',
+            'total'                => 'nullable|numeric',
+            'status'               => ['nullable','string','max:50', Rule::in($this->allowedStatusValues())],
+            'currency'             => 'nullable|string|max:10',
+        ]);
+
+        $data['vat_enabled'] = $request->boolean('vat_enabled');
+        $data['status'] = $this->normalizeStatus($data['status'] ?? '');
+
+        $data = $this->filterPersistableColumns($data);
+
+        $invoice = Invoice::create($data);
+
+        $slug = $invoice->number ?: $invoice->id;
+
+        return redirect()
+            ->route('invoices.show', $slug)
+            ->with('ok', 'Created');
+    }
+
+    // ===== Show (HTML view) =====
+    public function show(string $key)
     {
         $invoice = $this->findByKey($key);
-        return view('invoices.show', compact('invoice'));
+        $receiptsAvailable = Schema::hasTable('receipts');
+
+        $relations = ['items' => fn ($q) => $q->orderBy('id'), 'quotation'];
+        if ($receiptsAvailable) {
+            $relations[] = 'receipt';
+        }
+
+        $invoice->loadMissing($relations);
+        if (!$receiptsAvailable) {
+            $invoice->setRelation('receipt', null);
+        }
+
+        return view('invoices.show', compact('invoice', 'receiptsAvailable'));
+    }
+
+    public function pdf(string $key)
+    {
+        $invoice = $this->findByKey($key);
+        $invoice->loadMissing([
+            'items' => fn ($q) => $q->orderBy('id'),
+            'quotation',
+        ]);
+
+        if (class_exists(Dompdf::class)) {
+            $html = view('invoices.pdf', ['invoice' => $invoice])->render();
+
+            $options = new Options();
+            $options->set('isRemoteEnabled', true);
+            $options->set('isHtml5ParserEnabled', true);
+            $options->set('defaultFont', 'DejaVu Sans');
+
+            $dompdf = new Dompdf($options);
+            $dompdf->loadHtml($html);
+            $dompdf->setPaper('A4');
+            $dompdf->render();
+
+            $payload = $dompdf->output();
+        } else {
+            $payload = SimplePdf::invoice($invoice);
+        }
+
+        $filename = ($invoice->number ?? 'invoice').'.pdf';
+        $dir = storage_path('app/invoices');
+        if (!is_dir($dir)) {
+            mkdir($dir, 0775, true);
+        }
+        $path = $dir.'/'.$filename;
+        file_put_contents($path, $payload);
+
+        return response()->file($path, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="'.$filename.'"',
+        ]);
     }
 
     // ===== Edit form (HTML view) =====
     public function edit(string $key)
     {
         $invoice = $this->findByKey($key);
-        return view('invoices.edit', compact('invoice'));
+        return view('invoices.edit', [
+            'invoice'        => $invoice,
+            'statusOptions'  => $this->statusOptions(),
+        ]);
     }
 
     // ===== Update action =====
@@ -69,16 +169,102 @@ class InvoiceController extends Controller
         $invoice = $this->findByKey($key);
 
         $data = $request->validate([
-            'customer_name' => 'required|string|max:255',
-            'issue_date'    => 'nullable|date',
-            'status'        => 'required|string|max:50',
-            'total'         => 'required|numeric',
+            'number'               => ['nullable','string','max:255', $this->invoiceNumberRule($invoice->id)],
+            'quotation_number'     => 'nullable|string|max:255',
+            'customer_id'          => 'nullable|integer|exists:customers,id',
+            'customer_name'        => 'required|string|max:255',
+            'customer_address'     => 'nullable|string',
+            'customer_tax_id'      => 'nullable|string|max:50',
+            'customer_branch_type' => 'nullable|string|max:20',
+            'customer_branch_code' => 'nullable|string|max:20',
+            'issue_date'           => 'nullable|date',
+            'due_date'             => 'nullable|date',
+            'discount_percent'     => 'nullable|numeric',
+            'vat_enabled'          => 'sometimes|boolean',
+            'tax_rate'             => 'nullable|numeric',
+            'subtotal'             => 'nullable|numeric',
+            'tax'                  => 'nullable|numeric',
+            'total'                => 'nullable|numeric',
+            'status'               => ['required','string','max:50', Rule::in($this->allowedStatusValues())],
         ]);
+
+        $data['vat_enabled'] = $request->boolean('vat_enabled');
+        $data['status'] = $this->normalizeStatus($data['status'] ?? $invoice->status);
+        $data['total'] = $data['total'] ?? $invoice->total;
+
+        $data = $this->filterPersistableColumns($data);
 
         $invoice->update($data);
 
-        // ให้ redirect กลับไปหน้า show โดยใช้เลขเอกสารถ้ามี
         $slug = $invoice->number ?: $invoice->id;
         return redirect()->route('invoices.show', $slug)->with('ok','Updated');
+    }
+
+    // ===== Delete action =====
+    public function destroy(string $key)
+    {
+        $invoice = $this->findByKey($key);
+        $invoice->delete();
+
+        return redirect()->route('invoices.index')->with('ok', 'Deleted');
+    }
+
+    private function statusOptions(): array
+    {
+        return [
+            'pending'   => 'Pending / Waiting for Approval',
+            'approved'  => 'Approved',
+            'paid'      => 'Paid',
+            'cancelled' => 'Cancelled / Void',
+        ];
+    }
+
+    private function invoiceNumberRule(?int $ignoreId = null)
+    {
+        $rule = Rule::unique('invoices', 'number');
+
+        if (Schema::hasColumn('invoices', 'status')) {
+            $rule = $rule->where(fn ($q) => $q->whereNotIn('status', ['cancelled', 'void']));
+        }
+
+        if ($ignoreId) {
+            $rule = $rule->ignore($ignoreId);
+        }
+
+        return $rule;
+    }
+
+    private function allowedStatusValues(): array
+    {
+        return array_merge(array_keys($this->statusOptions()), [
+            'draft', 'sent', 'unpaid', 'void', 'cancel', 'waiting', 'waiting for approval', 'waiting_for_approval',
+        ]);
+    }
+
+    private function normalizeStatus(?string $status): string
+    {
+        $normalized = strtolower(trim((string) $status));
+        $normalized = match ($normalized) {
+            'draft', 'sent', 'unpaid', 'waiting', 'waiting for approval', 'waiting_for_approval' => 'pending',
+            'void', 'cancel' => 'cancelled',
+            default => $normalized,
+        };
+
+        return in_array($normalized, array_keys($this->statusOptions()), true)
+            ? $normalized
+            : 'pending';
+    }
+
+    private function filterPersistableColumns(array $data): array
+    {
+        if (!Schema::hasTable('invoices')) {
+            return $data;
+        }
+
+        $columns = Schema::getColumnListing('invoices');
+
+        return collect($data)
+            ->filter(fn ($value, $key) => in_array($key, $columns, true))
+            ->toArray();
     }
 }

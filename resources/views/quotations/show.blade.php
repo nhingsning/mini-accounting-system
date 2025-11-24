@@ -4,32 +4,46 @@
 
 @section('content')
 <style>
-:root{--brand:#2B4A72;--ink:#0f172a;--muted:#64748b;--line:#e5e7eb;--bg:#f8fafc;--card:#ffffff}
+:root{
+  --brand:#31689E;
+  --ink:#0f172a;
+  --muted:#64748b;
+  --line:#e5e7eb;
+  --bg:#f8fafc;
+  --card:#ffffff;
+}
 body{background:var(--bg)}
-.fa-wrap{max-width:1160px;margin:0 auto;padding:20px}
-.fa-topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
-.fa-title{font-size:20px;font-weight:700;color:var(--ink)}
-.fa-actions{display:flex;gap:8px}
-.fa-btn{display:inline-flex;align-items:center;gap:6px;border-radius:10px;border:1px solid var(--line);padding:8px 12px;text-decoration:none;font-weight:600}
-.fa-btn.primary{background:var(--brand);color:#fff;border-color:var(--brand)}
+.fa-wrap{max-width:1200px;margin:0 auto;padding:22px}
+.fa-topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.fa-title{font-size:22px;font-weight:800;color:var(--ink);display:flex;gap:10px;align-items:center}
+.fa-pill{display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;background:rgba(49,104,158,.1);color:var(--brand);border:1px solid rgba(49,104,158,.2);font-size:12px;font-weight:700;text-transform:capitalize}
+.fa-actions{display:flex;flex-wrap:wrap;gap:8px}
+.fa-btn{display:inline-flex;align-items:center;gap:6px;border-radius:12px;border:1px solid var(--line);padding:9px 14px;text-decoration:none;font-weight:700;font-size:14px}
+.fa-btn.primary{background:var(--brand);color:#fff;border-color:var(--brand);box-shadow:0 10px 24px -12px var(--brand)}
 .fa-btn.light{background:#fff;color:var(--ink)}
-.fa-card{background:var(--card);border:1px solid var(--line);border-radius:14px}
-.fa-grid{display:grid;grid-template-columns:1fr 340px;gap:16px}
-@media (max-width: 992px){.fa-grid{grid-template-columns:1fr}}
-.fa-section{padding:16px}
-.fa-label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
-.fa-val{font-weight:700;color:var(--ink)}
+.fa-grid{display:grid;grid-template-columns:2fr 1.05fr;gap:18px;margin-top:10px}
+@media (max-width: 1100px){.fa-grid{grid-template-columns:1fr}}
+.fa-card{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:0 14px 48px -28px rgba(0,0,0,.25)}
+.fa-section{padding:18px}
+.fa-label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px;letter-spacing:0.01em;text-transform:uppercase}
+.fa-val{font-weight:800;color:var(--ink);font-size:15px}
+.fa-mini-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px 20px;margin-bottom:8px}
+.fa-summary-card{display:flex;align-items:center;justify-content:space-between;padding:16px;border-radius:16px;background:linear-gradient(135deg,rgba(49,104,158,.08),#fff);border:1px dashed rgba(49,104,158,.3)}
+.fa-summary-card h3{margin:0;font-size:16px;color:var(--muted);font-weight:700}
+.fa-summary-card .val{font-size:22px;font-weight:900;color:var(--ink)}
+.fa-summary-card .sub{font-size:13px;color:var(--muted);margin-top:2px}
 .fa-table{width:100%;border-collapse:separate;border-spacing:0 0}
-.fa-table thead th{background:var(--brand);color:#fff;border:0;padding:10px 12px;font-weight:700}
-.fa-table tbody td{background:#fff;border-bottom:1px solid var(--line);padding:10px 12px;vertical-align:top}
-.fa-table .no{width:64px;text-align:center}
+.fa-table thead th{background:var(--brand);color:#fff;border:0;padding:11px 12px;font-weight:800;text-transform:uppercase;font-size:12px;letter-spacing:.02em}
+.fa-table tbody td{background:#fff;border-bottom:1px solid var(--line);padding:12px;vertical-align:top;font-size:14px}
+.fa-table .no{width:58px;text-align:center}
 .fa-table .qty,.fa-table .price,.fa-table .disc,.fa-table .line{text-align:right;width:140px}
-.fa-name{font-weight:700;color:var(--ink)}
-.fa-desc{color:var(--muted);font-size:13px;margin-top:2px;white-space:pre-wrap}
-.fa-sticky{position:sticky;top:16px}
-.fa-totals .row{display:flex;justify-content:space-between;margin:6px 0}
-.fa-totals .row strong{font-weight:800}
-.fa-badge{display:inline-block;background:#eef2ff;color:var(--brand);border:1px solid var(--brand);padding:2px 8px;border-radius:999px;font-size:12px}
+.fa-name{font-weight:800;color:var(--ink)}
+.fa-desc{color:var(--muted);font-size:13px;margin-top:4px;white-space:pre-wrap}
+.fa-sticky{position:sticky;top:20px}
+.fa-totals .row{display:flex;justify-content:space-between;margin:8px 0;font-size:14px;color:var(--muted)}
+.fa-totals .row strong{font-weight:900;color:var(--ink)}
+.fa-badge{display:inline-flex;align-items:center;gap:6px;background:#e8f0fb;color:var(--brand);border:1px solid rgba(49,104,158,.2);padding:4px 10px;border-radius:10px;font-size:12px;font-weight:700}
+.fa-hint{color:var(--muted);font-size:13px;margin-top:6px}
 .hr-dash{border-top:1px dashed var(--line);margin:8px 0 0}
 </style>
 
@@ -78,27 +92,44 @@ body{background:var(--bg)}
 
 <div class="fa-wrap">
   <div class="fa-topbar">
-    <div class="fa-title">Quotation {{ $quotation->number ?? ('#'.$quotation->id) }}</div>
+    <div class="fa-title">
+      <span>Quotation {{ $quotation->number ?? ('#'.$quotation->id) }}</span>
+      <span class="fa-pill">{{ $quotation->status ?? 'draft' }}</span>
+    </div>
     <div class="fa-actions">
       <a href="{{ route('quotations.index') }}" class="fa-btn light">Back</a>
       @if(Route::has('quotations.edit'))
       <a href="{{ route('quotations.edit', $quotation) }}" class="fa-btn primary">Edit</a>
       @endif
+      <a href="{{ route('quotations.pdf', $quotation) }}" class="fa-btn light" target="_blank">PDF</a>
+      <form action="{{ route('quotations.convert.invoice', $quotation) }}" method="POST" style="display:inline">
+        @csrf
+        <button class="fa-btn light" type="submit">สร้าง Invoice จากใบนี้</button>
+      </form>
+      <form action="{{ route('quotations.convert.po', $quotation) }}" method="POST" style="display:inline">
+        @csrf
+        <button class="fa-btn light" type="submit">สร้าง PO จากใบนี้</button>
+      </form>
     </div>
   </div>
 
   <div class="fa-grid">
     {{-- LEFT: customer + items --}}
     <div class="fa-card fa-section">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px 20px;margin-bottom:6px">
+      <div class="fa-summary-card" style="margin-bottom:18px">
         <div>
-          <span class="fa-label">Customer</span>
-          <div class="fa-val">{{ $quotation->customer_name ?: '-' }}</div>
+          <h3>Customer</h3>
+          <div class="val">{{ $quotation->customer_name ?: '-' }}</div>
+          <div class="sub">{{ $quotation->customer_address ?: '—' }}</div>
         </div>
-        <div>
-          <span class="fa-label">Quotation No.</span>
-          <div class="fa-val">{{ $quotation->number ?? '-' }}</div>
+        <div style="text-align:right">
+          <div class="fa-label" style="margin-bottom:6px">Quotation No.</div>
+          <div class="val" style="font-size:18px">{{ $quotation->number ?? '-' }}</div>
+          <div class="fa-hint">Tax {{ number_format($quotation->tax_rate ?? 0,2) }}%</div>
         </div>
+      </div>
+
+      <div class="fa-mini-grid">
         <div>
           <span class="fa-label">Issue Date</span>
           <div class="fa-val">{{ $issue ?: '-' }}</div>
@@ -112,13 +143,13 @@ body{background:var(--bg)}
           <div><span class="fa-badge">{{ ucfirst($quotation->status ?? 'draft') }}</span></div>
         </div>
         <div>
-          <span class="fa-label">Tax Rate</span>
-          <div class="fa-val">{{ number_format($quotation->tax_rate ?? 0, 2) }}%</div>
+          <span class="fa-label">Salesperson</span>
+          <div class="fa-val">{{ $quotation->salesperson ?: '-' }}</div>
         </div>
       </div>
 
       @if(filled($quotation->notes))
-        <div style="margin:8px 0 14px">
+        <div style="margin:12px 0 16px">
           <span class="fa-label">Notes</span>
           <div class="fa-val" style="white-space:pre-wrap">{{ $quotation->notes }}</div>
         </div>

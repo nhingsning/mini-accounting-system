@@ -102,6 +102,74 @@
               </div>
             </div>
           </div>
+
+          {{-- Quotations overview --}}
+          <div class="panel mt-3">
+            <div class="panel-header d-flex justify-content-between align-items-center">
+              <div>
+                <strong>Quotations</strong>
+                <span class="mini">Latest activity</span>
+              </div>
+              <a href="{{ route('quotations.index') }}" class="btn btn-sm btn-light">View all</a>
+            </div>
+            <div class="panel-body">
+              <div class="table-responsive">
+                <table class="table align-middle">
+                  <thead class="table-light">
+                    <tr>
+                      <th>QT No.</th>
+                      <th>Customer</th>
+                      <th>Date</th>
+                      <th class="text-end">Total</th>
+                      <th>Status</th>
+                      <th class="text-end">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @forelse(($quotations ?? []) as $q)
+                      @php
+                        $qtKey = $q->number ?? $q->id;
+                        $status = strtolower($q->status ?? 'draft');
+                        $badge  = $status === 'approved' ? 'success' : ($status === 'rejected' ? 'danger' : ($status === 'sent' ? 'info' : 'secondary'));
+                        $date   = $q->d ?? $q->created_at ?? now();
+                      @endphp
+                      <tr>
+                        <td>
+                          <a href="{{ route('quotations.show', $qtKey) }}" class="text-decoration-none">{{ $q->number ?? ('QT'.\Carbon\Carbon::parse($date)->format('Ym').'-'.str_pad($q->id,4,'0',STR_PAD_LEFT)) }}</a>
+                        </td>
+                        <td>{{ $q->customer_name ?? '—' }}</td>
+                        <td>{{ \Carbon\Carbon::parse($date)->format('M d, Y') }}</td>
+                        <td class="text-end">{{ number_format((float)($q->total ?? 0), 2) }}</td>
+                        <td><span class="badge text-bg-{{ $badge }}">{{ ucfirst($status) }}</span></td>
+                        <td class="text-end" style="white-space:nowrap">
+                          <a href="{{ route('quotations.show', $qtKey) }}" class="btn btn-sm btn-light" title="View"><i class="bi bi-eye"></i></a>
+                          <form action="{{ route('quotations.copy', $qtKey) }}" method="POST" class="d-inline">
+                            @csrf
+                            <button type="submit" class="btn btn-sm btn-light" title="Copy"><i class="bi bi-files"></i></button>
+                          </form>
+                          <form action="{{ route('quotations.convert.invoice', $qtKey) }}" method="POST" class="d-inline">
+                            @csrf
+                            <button type="submit" class="btn btn-sm btn-light" title="Convert to Invoice"><i class="bi bi-receipt"></i></button>
+                          </form>
+                          <form action="{{ route('quotations.convert.po', $qtKey) }}" method="POST" class="d-inline">
+                            @csrf
+                            <button type="submit" class="btn btn-sm btn-light" title="Convert to PO"><i class="bi bi-file-earmark-arrow-down"></i></button>
+                          </form>
+                          <form action="{{ route('quotations.destroy', $qtKey) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete quotation {{ $q->number ?? $qtKey }} ?');">
+                            @csrf
+                            @method('DELETE')
+                            <button type="submit" class="btn btn-sm btn-danger" title="Delete"><i class="bi bi-trash"></i></button>
+                          </form>
+                        </td>
+                      </tr>
+                    @empty
+                      <tr><td colspan="6" class="text-center text-muted">No quotations yet.</td></tr>
+                    @endforelse
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
         </div>
 
         {{-- Right --}}
@@ -126,6 +194,36 @@
             <div class="mini mb-2">Expenses Breakdown</div>
             <div class="chart-container">
               <canvas id="donutChart" height="120"></canvas>
+            </div>
+          </div>
+
+          <div class="panel mt-3 p-3">
+            <div class="panel-header">
+              <strong>Quotation History</strong>
+              <span class="mini">Recent changes</span>
+            </div>
+            <div class="panel-body">
+              <ul class="list-unstyled mb-0">
+                @forelse(($history ?? []) as $log)
+                  <li class="mb-3">
+                    <div class="d-flex justify-content-between">
+                      <div>
+                        <div class="fw-semibold">{{ ucfirst($log->action ?? 'update') }} – {{ $log->number ?? 'QT#'.$log->id }}</div>
+                        <div class="mini text-muted">{{ $log->customer_name ?? '—' }}</div>
+                        <div class="mini">{{ $log->description ?? 'Updated details' }}</div>
+                      </div>
+                      <div class="text-end mini">
+                        <div>{{ \Carbon\Carbon::parse($log->created_at)->format('M d, H:i') }}</div>
+                        @if(!empty($log->user_name))
+                          <div class="text-muted">{{ $log->user_name }}</div>
+                        @endif
+                      </div>
+                    </div>
+                  </li>
+                @empty
+                  <li class="text-muted">No history yet.</li>
+                @endforelse
+              </ul>
             </div>
           </div>
         </div>

@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('title','New Invoice')
+@section('title','New PO')
 
 @section('body')
 <div class="layout">
@@ -8,31 +8,22 @@
   <main>
     <div class="topbar">
       <button id="menuToggle" class="btn btn-soft rounded-circle p-2 d-lg-none"><i class="bi bi-list"></i></button>
-      <h2 class="m-0">New Invoice</h2>
+      <h2 class="m-0">New PO</h2>
       <div class="ms-auto"></div>
     </div>
 
     <div class="container-fluid py-3">
-      @php
-        $statusOptions = $statusOptions ?? [
-          'pending'   => 'Pending / Waiting for Approval',
-          'approved'  => 'Approved',
-          'paid'      => 'Paid',
-          'cancelled' => 'Cancelled / Void',
-        ];
-      @endphp
-
-      <form class="panel" method="POST" action="{{ route('invoices.store') }}" autocomplete="off">
+      <form class="panel" method="POST" action="{{ route('po.store') }}" autocomplete="off">
         @csrf
         <input type="hidden" name="customer_id" id="customer_id_hidden" value="{{ old('customer_id') }}">
 
-        <div class="panel-header"><strong>Invoice details</strong></div>
+        <div class="panel-header"><strong>PO details</strong></div>
         <div class="panel-body">
           <div class="row g-3">
             <div class="col-md-4">
-              <label class="form-label">Invoice No. (optional)</label>
-              <input name="number" class="form-control" value="{{ old('number') }}" placeholder="ปล่อยว่างให้ออกเลขเอง">
-              <div class="form-text">แก้เลข INV ได้ตามต้องการ หรือเว้นว่างให้ระบบออกให้อัตโนมัติ</div>
+              <label class="form-label">PO No. (optional)</label>
+              <input name="number" class="form-control" value="{{ old('number') }}" placeholder="ปล่อยว่างให้ออกเลข PO อัตโนมัติ">
+              <div class="form-text">ปรับเลข PO ได้เอง หากเว้นว่างระบบจะรัน POYYYY-MM-####</div>
             </div>
 
             {{-- ===== Customer Picker ===== --}}
@@ -69,16 +60,6 @@
               <input type="date" name="due_date" class="form-control @error('due_date') is-invalid @enderror"
                      value="{{ old('due_date') }}">
               @error('due_date')<div class="invalid-feedback">{{ $message }}</div>@enderror
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Status</label>
-              @php $st = old('status','pending'); @endphp
-              <select name="status" class="form-select">
-                @foreach($statusOptions as $key => $label)
-                  <option value="{{ $key }}" {{ $st === $key ? 'selected' : '' }}>{{ $label }}</option>
-                @endforeach
-              </select>
-              <div class="form-text">เลือกระยะสถานะของใบแจ้งหนี้ (เริ่มต้น Pending)</div>
             </div>
 
             {{-- auto-fill fields --}}
@@ -159,8 +140,8 @@
           </div>
 
           <div class="text-end mt-3">
-            <button class="btn btn-brand px-4">Save Invoice</button>
-            <a href="{{ route('invoices.index') }}" class="btn btn-light">Cancel</a>
+            <button class="btn btn-brand px-4">Save PO</button>
+            <a href="{{ route('po.index') }}" class="btn btn-light">Cancel</a>
           </div>
         </div>
       </form>
