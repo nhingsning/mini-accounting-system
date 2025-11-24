@@ -20,11 +20,11 @@
         </div>
       @endif
 
-      <form method="POST" action="{{ route('quotations.update', $quotation) }}" autocomplete="off">
+        <form method="POST" action="{{ route('quotations.update', $quotation) }}" autocomplete="off" enctype="multipart/form-data">
         @csrf
         @method('PUT')
         {{-- เก็บ customer_id ไว้ส่งไปกับฟอร์ม --}}
-        <input type="hidden" name="customer_id" id="customer_id_hidden" value="{{ old('customer_id', $quotation->customer_id) }}">
+          <input type="hidden" name="customer_id" id="customer_id_hidden" value="{{ old('customer_id', $quotation->customer_id) }}">
 
         <div class="row g-3">
           {{-- ซ้าย: รายละเอียด + รายการ --}}
@@ -35,18 +35,21 @@
 
                 {{-- ===== Customer Picker (ใหม่) ===== --}}
                 <div class="row g-3 align-items-end mb-1">
-                  <div class="col-md-6">
-                    <label class="form-label">ค้นหาลูกค้า</label>
-                    <input id="customer_search" type="text" class="form-control" placeholder="พิมพ์ชื่อ / เลขผู้เสียภาษี">
-                  </div>
-                  <div class="col-md-6">
+                  <div class="col-md-8">
                     <label class="form-label">Select Customer</label>
-                    <select id="customer_id_select" class="form-select" data-initial="{{ old('customer_id', $quotation->customer_id) }}">
+                    <select id="customer_id_select" class="form-select" data-initial="{{ old('customer_id', $quotation->customer_id) }}"
+                            data-initial-name="{{ old('customer_name', $quotation->customer_name) }}">
                       <option value="">— เลือกลูกค้า —</option>
+                      @if(old('customer_id', $quotation->customer_id))
+                        <option value="{{ old('customer_id', $quotation->customer_id) }}" selected>
+                          {{ old('customer_name', $quotation->customer_name) ?? 'ลูกค้าปัจจุบัน' }}
+                        </option>
+                      @endif
                     </select>
+                    <div class="form-text">เลือกชื่อลูกค้าแล้วรายละเอียดจะถูกเติมให้อัตโนมัติ</div>
                   </div>
-                  <div class="col-12 d-flex justify-content-end">
-                    <div class="form-check">
+                  <div class="col-md-4 d-flex justify-content-end">
+                    <div class="form-check ms-auto">
                       <input class="form-check-input" type="checkbox" id="unlockFields">
                       <label class="form-check-label" for="unlockFields">ปลดล็อกเพื่อแก้ไขรายละเอียดลูกค้าในเอกสารนี้</label>
                     </div>
@@ -119,13 +122,13 @@
                   <div class="col-md-3">
                     <label class="form-label">Issue Date</label>
                     <input type="date" name="issue_date" class="form-control"
-                           value="{{ old('issue_date', $quotation->issue_date) }}">
+                           value="{{ old('issue_date', optional($quotation->issue_date)->format('Y-m-d')) }}">
                   </div>
 
                   <div class="col-md-3">
                     <label class="form-label">Valid Until</label>
                     <input type="date" name="valid_until" class="form-control"
-                           value="{{ old('valid_until', $quotation->valid_until) }}">
+                           value="{{ old('valid_until', optional($quotation->valid_until)->format('Y-m-d')) }}">
                   </div>
 
                   <div class="col-md-2">
@@ -203,9 +206,9 @@
                 </div>
 
                 <div class="card p-3">
-                  <div class="d-flex justify-content-between"><span>Subtotal</span><span id="sum-subtotal">0.00</span></div>
-                  <div class="d-flex justify-content-between"><span>Tax</span><span id="sum-tax">0.00</span></div>
-                  <div class="d-flex justify-content-between fw-600"><span>Total</span><span id="sum-total">0.00</span></div>
+                  <div class="d-flex justify-content-between"><span>Subtotal</span><span id="sum-subtotal" data-initial="{{ number_format((float) $quotation->subtotal, 2, '.', '') }}">0.00</span></div>
+                  <div class="d-flex justify-content-between"><span>Tax</span><span id="sum-tax" data-initial="{{ number_format((float) $quotation->tax, 2, '.', '') }}">0.00</span></div>
+                  <div class="d-flex justify-content-between fw-600"><span>Total</span><span id="sum-total" data-initial="{{ number_format((float) $quotation->total, 2, '.', '') }}">0.00</span></div>
                 </div>
               </div>
 
@@ -230,9 +233,9 @@ const SHOW_URL = "{{ url('/api/customers') }}";
 // ---------- CUSTOMER PICKER ----------
 (function(){
   const selectBox = document.getElementById('customer_id_select');
-  const searchBox = document.getElementById('customer_search');
   const hiddenId  = document.getElementById('customer_id_hidden');
   const unlockBox = document.getElementById('unlockFields');
+  const initialName = selectBox?.dataset.initialName || '';
 
   const fields = {
     name: document.getElementById('cust_name'),
@@ -256,33 +259,44 @@ const SHOW_URL = "{{ url('/api/customers') }}";
     const data = await res.json();
     [...selectBox.options].slice(1).forEach(o=>o.remove());
     data.forEach(row => selectBox.add(new Option(row.text, row.id)));
+    // ensure current customer shows up evenถ้า response ไม่มี
+    if(selectBox.dataset.initial && ![...selectBox.options].some(o=>o.value===selectBox.dataset.initial)){
+      selectBox.add(new Option(initialName || 'เลือกไว้ก่อนหน้า', selectBox.dataset.initial));
+    }
   }
 
   async function fillCustomer(id){
     if(!id){ hiddenId.value=''; return; }
-    const res = await fetch(`${SHOW_URL}/${id}.json`, { headers: {'X-Requested-With':'XMLHttpRequest'} });
-    if(!res.ok) return;
-    const c = await res.json();
-    hiddenId.value = c.id || '';
-    if(fields.name)        fields.name.value        = c.name || '';
-    if(fields.address)     fields.address.value     = c.address || '';
-    if(fields.tax)         fields.tax.value         = c.tax_id || '';
-    if(fields.branchType)  fields.branchType.value  = (c.is_branch ? 'branch' : 'head');
-    if(fields.branchCode)  fields.branchCode.value  = c.branch_code || '';
+    try {
+      const res = await fetch(`${SHOW_URL}/${id}.json`, { headers: {'X-Requested-With':'XMLHttpRequest'} });
+      if(!res.ok) throw new Error('Customer not found');
+      const payload = await res.json();
+      const c = payload.customer || {};
+      const contact = payload.contact || {};
+      hiddenId.value = c.id || '';
+      if(fields.name)        fields.name.value        = c.name || '';
+      if(fields.address)     fields.address.value     = c.address_show || c.address || '';
+      if(fields.tax)         fields.tax.value         = c.tax_id || '';
+      if(fields.branchType)  fields.branchType.value  = (c.office_type || (c.is_branch ? 'branch' : 'head') || '-');
+      if(fields.branchCode)  fields.branchCode.value  = c.branch_code || '';
+      if(fields.contactName) fields.contactName.value = contact.contact_name || c.contact_name || '';
+      if(fields.contactEmail)fields.contactEmail.value= contact.email || c.contact_email || '';
+      if(fields.contactPhone)fields.contactPhone.value= contact.mobile || c.contact_phone || '';
+      if(fields.paymentTerms)fields.paymentTerms.value= c.payment_terms || '';
+    } catch(err){
+      console.error(err);
+    }
   }
 
-  // search debounce
-  let t=null;
-  searchBox?.addEventListener('input', e=>{
-    clearTimeout(t);
-    t=setTimeout(()=> loadCustomerOptions(e.target.value||''), 250);
-  });
   selectBox?.addEventListener('change', e=> fillCustomer(e.target.value));
 
   document.addEventListener('DOMContentLoaded', async ()=>{
     await loadCustomerOptions('');
     const initial = selectBox.dataset.initial;
-    if(initial){ selectBox.value = initial; await fillCustomer(initial); }
+    if(initial){
+      selectBox.value = initial;
+      await fillCustomer(initial);
+    }
   });
 })();
 
@@ -324,6 +338,18 @@ function calc(){
 function wireSum(){
   document.querySelectorAll('#itemTable input, [name="tax_rate"], #enable_vat')
     .forEach(el=>el.removeEventListener?.('input',calc) || el.addEventListener('input',calc));
+  const initSub = document.getElementById('sum-subtotal').dataset.initial;
+  const initTax = document.getElementById('sum-tax').dataset.initial;
+  const initTot = document.getElementById('sum-total').dataset.initial;
+  if(initSub){
+    document.getElementById('sum-subtotal').textContent = Number(initSub).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+  }
+  if(initTax){
+    document.getElementById('sum-tax').textContent = Number(initTax).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+  }
+  if(initTot){
+    document.getElementById('sum-total').textContent = Number(initTot).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+  }
   calc();
 }
 document.addEventListener('DOMContentLoaded', wireSum);

@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('title','New Invoice')
+@section('title','Edit PO '.$po->number)
 
 @section('body')
 <div class="layout">
@@ -7,94 +7,91 @@
 
   <main>
     <div class="topbar">
-      <button id="menuToggle" class="btn btn-soft rounded-circle p-2 d-lg-none"><i class="bi bi-list"></i></button>
-      <h2 class="m-0">New Invoice</h2>
+      <h2 class="m-0">Edit PO {{ $po->number }}</h2>
       <div class="ms-auto"></div>
     </div>
 
     <div class="container-fluid py-3">
-      @php
-        $statusOptions = $statusOptions ?? [
-          'pending'   => 'Pending / Waiting for Approval',
-          'approved'  => 'Approved',
-          'paid'      => 'Paid',
-          'cancelled' => 'Cancelled / Void',
-        ];
-      @endphp
+      @if ($errors->any())
+        <div class="alert alert-danger">
+          <div class="fw-600 mb-1">Please fix the following:</div>
+          <ul class="m-0 ps-3">
+            @foreach ($errors->all() as $e) <li>{{ $e }}</li> @endforeach
+          </ul>
+        </div>
+      @endif
 
-      <form class="panel" method="POST" action="{{ route('invoices.store') }}" autocomplete="off">
+      <form class="panel" method="POST" action="{{ route('po.update', $po) }}" autocomplete="off">
         @csrf
-        <input type="hidden" name="customer_id" id="customer_id_hidden" value="{{ old('customer_id') }}">
+        @method('PUT')
+        <input type="hidden" name="customer_id" id="customer_id_hidden" value="{{ old('customer_id', $po->customer_id) }}">
 
-        <div class="panel-header"><strong>Invoice details</strong></div>
+        <div class="panel-header d-flex align-items-center">
+          <strong>PO details</strong>
+        </div>
+
         <div class="panel-body">
           <div class="row g-3">
             <div class="col-md-4">
-              <label class="form-label">Invoice No. (optional)</label>
-              <input name="number" class="form-control" value="{{ old('number') }}" placeholder="ปล่อยว่างให้ออกเลขเอง">
-              <div class="form-text">แก้เลข INV ได้ตามต้องการ หรือเว้นว่างให้ระบบออกให้อัตโนมัติ</div>
+              <label class="form-label">PO No.</label>
+              <input name="number" class="form-control" value="{{ old('number', $po->number) }}" placeholder="แก้เลข PO ได้ที่นี่">
+              <div class="form-text">ต้องการเปลี่ยนเลข PO สามารถกรอกใหม่หรือปล่อยว่างให้ใช้เลขเดิม</div>
             </div>
 
             {{-- ===== Customer Picker ===== --}}
             <div class="col-md-8">
               <label class="form-label">Select Customer</label>
-              <select id="customer_id_select" class="form-select" data-initial="{{ old('customer_id') }}">
+              <select id="customer_id_select" class="form-select" data-initial="{{ old('customer_id', $po->customer_id) }}">
                 <option value="">— เลือกลูกค้า —</option>
               </select>
-              <div class="form-text">เลือกชื่อลูกค้าเพื่อดึงข้อมูลมาใส่อัตโนมัติ</div>
+              <div class="form-text">เลือกชื่อลูกค้าเพื่อดึงข้อมูลลูกค้ามาใส่อัตโนมัติ</div>
             </div>
             <div class="col-md-4 d-flex align-items-end">
               <div class="form-check ms-auto">
                 <input class="form-check-input" type="checkbox" id="unlockFields">
-                <label class="form-check-label" for="unlockFields">ปลดล็อกเพื่อแก้ไขรายละเอียดลูกค้า</label>
+                <label class="form-check-label" for="unlockFields">ปลดล็อกเพื่อแก้ไขรายละเอียดลูกค้าในใบนี้</label>
               </div>
             </div>
             {{-- ===== /Customer Picker ===== --}}
 
             <div class="col-md-6">
               <label class="form-label">Customer Name</label>
-              <input id="cust_name" name="customer_name" class="form-control @error('customer_name') is-invalid @enderror"
-                     value="{{ old('customer_name') }}" required>
+              <input id="cust_name" name="customer_name"
+                     class="form-control @error('customer_name') is-invalid @enderror"
+                     value="{{ old('customer_name', $po->customer_name) }}" required>
               @error('customer_name')<div class="invalid-feedback">{{ $message }}</div>@enderror
             </div>
 
             <div class="col-md-3">
               <label class="form-label">Issue Date</label>
-              <input type="date" name="issue_date" class="form-control @error('issue_date') is-invalid @enderror"
-                     value="{{ old('issue_date', now()->toDateString()) }}" required>
+              <input type="date" name="issue_date"
+                     class="form-control @error('issue_date') is-invalid @enderror"
+                     value="{{ old('issue_date', optional($po->issue_date)->toDateString()) }}" required>
               @error('issue_date')<div class="invalid-feedback">{{ $message }}</div>@enderror
             </div>
             <div class="col-md-3">
               <label class="form-label">Due Date</label>
-              <input type="date" name="due_date" class="form-control @error('due_date') is-invalid @enderror"
-                     value="{{ old('due_date') }}">
+              <input type="date" name="due_date"
+                     class="form-control @error('due_date') is-invalid @enderror"
+                     value="{{ old('due_date', optional($po->due_date)->toDateString()) }}">
               @error('due_date')<div class="invalid-feedback">{{ $message }}</div>@enderror
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Status</label>
-              @php $st = old('status','pending'); @endphp
-              <select name="status" class="form-select">
-                @foreach($statusOptions as $key => $label)
-                  <option value="{{ $key }}" {{ $st === $key ? 'selected' : '' }}>{{ $label }}</option>
-                @endforeach
-              </select>
-              <div class="form-text">เลือกระยะสถานะของใบแจ้งหนี้ (เริ่มต้น Pending)</div>
             </div>
 
             {{-- auto-fill fields --}}
             <div class="col-md-8">
               <label class="form-label">Customer Address</label>
               <textarea id="cust_address" name="customer_address" class="form-control" rows="2"
-                        placeholder="ที่อยู่ลูกค้า">{{ old('customer_address') }}</textarea>
+                        placeholder="ที่อยู่ลูกค้า">{{ old('customer_address', $po->customer_address) }}</textarea>
             </div>
             <div class="col-md-4">
               <label class="form-label">Tax ID</label>
-              <input id="cust_tax" name="customer_tax_id" class="form-control" value="{{ old('customer_tax_id') }}" placeholder="เลขประจำตัวผู้เสียภาษี">
+              <input id="cust_tax" name="customer_tax_id" class="form-control"
+                     value="{{ old('customer_tax_id', $po->customer_tax_id) }}" placeholder="เลขประจำตัวผู้เสียภาษี">
             </div>
 
             <div class="col-md-4">
               <label class="form-label">Branch Type</label>
-              @php $bt = old('customer_branch_type',''); @endphp
+              @php $bt = old('customer_branch_type', $po->customer_branch_type ?? ''); @endphp
               <select id="cust_branch_type" name="customer_branch_type" class="form-select">
                 <option value="" {{ $bt===''?'selected':'' }}>—</option>
                 <option value="head" {{ $bt==='head'?'selected':'' }}>Head Office</option>
@@ -103,23 +100,24 @@
             </div>
             <div class="col-md-4">
               <label class="form-label">Branch Code</label>
-              <input id="cust_branch_code" name="customer_branch_code" class="form-control" value="{{ old('customer_branch_code') }}" placeholder="เช่น 00000 หรือ 001">
+              <input id="cust_branch_code" name="customer_branch_code" class="form-control"
+                     value="{{ old('customer_branch_code', $po->customer_branch_code) }}" placeholder="เช่น 00000 หรือ 001">
             </div>
 
             <div class="col-md-4">
               <label class="form-label">Discount (%)</label>
               <input type="number" step="0.01" min="0" max="100" name="discount_percent"
-                     class="form-control" value="{{ old('discount_percent',0) }}">
+                     class="form-control" value="{{ old('discount_percent', $po->discount_percent ?? 0) }}">
             </div>
             <div class="col-md-4">
               <label class="form-label">Tax Rate (%)</label>
               <input type="number" step="0.01" min="0" max="100" name="tax_rate"
-                     class="form-control" value="{{ old('tax_rate',0) }}">
+                     class="form-control" value="{{ old('tax_rate', $po->tax_rate ?? 0) }}">
             </div>
             <div class="col-md-4 d-flex align-items-end">
               <div class="form-check">
                 <input class="form-check-input" type="checkbox" id="vat_enabled" name="vat_enabled"
-                       {{ old('vat_enabled') ? 'checked' : '' }}>
+                       {{ old('vat_enabled', $po->vat_enabled) ? 'checked' : '' }}>
                 <label class="form-check-label" for="vat_enabled">Enable VAT</label>
               </div>
             </div>
@@ -127,6 +125,7 @@
 
           <hr class="my-4">
 
+          {{-- รายการสินค้า --}}
           <div class="d-flex justify-content-between align-items-center mb-2">
             <strong>Items</strong>
             <button type="button" class="btn btn-light btn-sm" id="addRow"><i class="bi bi-plus-lg"></i> Add row</button>
@@ -144,8 +143,20 @@
                 </tr>
               </thead>
               <tbody>
-                @php $old = old('items', [['description'=>'','qty'=>'','unit_price'=>'']]); @endphp
-                @foreach($old as $i => $row)
+                @php
+                  $oldItems = old('items');
+                  if ($oldItems === null) {
+                    $oldItems = $po->items?->map(function($it){
+                      return [
+                        'description' => $it->description,
+                        'qty'         => $it->qty ?? $it->quantity ?? 1,
+                        'unit_price'  => $it->unit_price ?? $it->price ?? 0,
+                      ];
+                    })->toArray() ?? [];
+                  }
+                  if (!count($oldItems)) $oldItems = [['description'=>'','qty'=>1,'unit_price'=>0]];
+                @endphp
+                @foreach($oldItems as $i => $row)
                   <tr>
                     <td><input class="form-control" name="items[{{ $i }}][description]" value="{{ $row['description'] }}"></td>
                     <td><input type="number" step="0.01" class="form-control qty" name="items[{{ $i }}][qty]" value="{{ $row['qty'] }}"></td>
@@ -159,8 +170,8 @@
           </div>
 
           <div class="text-end mt-3">
-            <button class="btn btn-brand px-4">Save Invoice</button>
-            <a href="{{ route('invoices.index') }}" class="btn btn-light">Cancel</a>
+            <a href="{{ route('po.index') }}" class="btn btn-light">Cancel</a>
+            <button class="btn btn-brand px-4">Save Changes</button>
           </div>
         </div>
       </form>
@@ -189,10 +200,9 @@
   };
 
   function setLocked(locked){
-    // ใช้ readOnly เพื่อให้ข้อมูลถูก submit ไปกับฟอร์ม
     [fields.name, fields.tax, fields.branchCode].forEach(el=>{ if(el) el.readOnly = locked; });
     if(fields.address) fields.address.readOnly = locked;
-    // ไม่ disable select เพื่อให้ส่งค่า
+    // ไม่ disable select เพื่อให้ค่าส่งไปกับฟอร์ม
   }
   setLocked(true);
   unlockBox?.addEventListener('change', e=> setLocked(!e.target.checked));
