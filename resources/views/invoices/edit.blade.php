@@ -116,12 +116,7 @@ body{background:var(--bg);color:var(--ink)}
         </div>
 
         <div class="fa-two">
-          <div>
-            <label class="fa-label">Invoice No.</label>
-            <input name="number" class="fa-input" value="{{ old('number', $invoice->number) }}" placeholder="แก้เลขได้ตามต้องการ">
-            <div class="helper">ปล่อยว่างถ้าใช้เลขเดิม</div>
-          </div>
-          <div>
+          <div class="span-2">
             <label class="fa-label">Status</label>
             <select name="status" class="fa-select">
               @foreach($statusOptions as $key => $label)
@@ -223,7 +218,11 @@ body{background:var(--bg);color:var(--ink)}
       <div class="fa-sticky">
         <div class="fa-card fa-section fa-totals">
           <div class="section-title" style="margin-bottom:8px">Summary</div>
-          <div class="row"><span>Invoice No.</span><strong>{{ $invoice->number ?? '-' }}</strong></div>
+          <div style="margin-bottom:10px">
+            <label class="fa-label">Invoice No.</label>
+            <input name="number" class="fa-input" value="{{ old('number', $invoice->number) }}" placeholder="เว้นว่างเพื่อใช้เลขเดิมหรือปรับเลขเอง">
+            <div class="helper">ทำเหมือนใบเสนอราคา: ปรับเลขได้เอง หรือเว้นว่างให้คงค่าเดิม</div>
+          </div>
           <div class="row"><span>Status</span><strong>{{ $statusOptions[$statusValue] ?? $statusValue }}</strong></div>
           <div class="row"><span>Issue Date</span><strong>{{ optional($invoice->issue_date)->format('Y-m-d') }}</strong></div>
           <div class="row"><span>Due Date</span><strong>{{ optional($invoice->due_date)->format('Y-m-d') }}</strong></div>
