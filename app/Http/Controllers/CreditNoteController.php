@@ -44,6 +44,7 @@ class CreditNoteController extends Controller
         return view('credit-notes.create', [
             'invoice' => $invoice,
             'statusOptions' => $this->statusOptions(),
+            'invoiceOptions' => $this->invoiceOptions(),
         ]);
     }
 
@@ -99,6 +100,7 @@ class CreditNoteController extends Controller
             'note' => $note,
             'invoice' => $note->invoice,
             'statusOptions' => $this->statusOptions(),
+            'invoiceOptions' => $this->invoiceOptions(),
         ]);
     }
 
@@ -135,6 +137,17 @@ class CreditNoteController extends Controller
 
         $slug = $note->number ?: $note->id;
         return redirect()->route('credit-notes.show', $slug)->with('ok', 'อัปเดตแล้ว');
+    }
+
+    protected function invoiceOptions()
+    {
+        return Invoice::query()
+            ->with(['items' => fn ($q) => $q->orderBy('id')])
+            ->onlyInvoices()
+            ->orderByDesc('issue_date')
+            ->orderByDesc('id')
+            ->limit(100)
+            ->get();
     }
 
     public function destroy(string $key)

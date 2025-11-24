@@ -2,6 +2,7 @@
   $isEdit = isset($note);
   $action = $isEdit ? route('credit-notes.update', $note->number ?? $note->id) : route('credit-notes.store');
   $invoice = $invoice ?? ($note->invoice ?? null);
+  $invoiceOptions = $invoiceOptions ?? collect();
   $items = old('items');
   if ($items === null) {
     if ($isEdit) {
@@ -147,9 +148,16 @@ body{background:var(--bg);color:var(--ink)}
         <div class="fa-two" style="margin-top:10px">
           <div>
             <label class="fa-label">อ้างอิง Invoice</label>
-            <input class="fa-input" name="invoice_number" value="{{ old('invoice_number', $isEdit ? $note->invoice_number : ($invoice->number ?? '')) }}" placeholder="INV...">
-            <input type="hidden" name="invoice_id" value="{{ old('invoice_id', $isEdit ? $note->invoice_id : ($invoice->id ?? '')) }}">
-            <div class="helper">เชื่อมโยงกับใบแจ้งหนี้ที่ต้องการปรับยอด</div>
+            <select class="fa-select" name="invoice_id" id="invoice-select">
+              <option value="">เลือก Invoice</option>
+              @foreach($invoiceOptions as $inv)
+                <option value="{{ $inv->id }}" {{ (string)old('invoice_id', $isEdit ? $note->invoice_id : ($invoice->id ?? '')) === (string)$inv->id ? 'selected' : '' }}>
+                  {{ $inv->number }} — {{ $inv->customer_name }}
+                </option>
+              @endforeach
+            </select>
+            <input class="fa-input" style="margin-top:8px" id="invoice-number" name="invoice_number" value="{{ old('invoice_number', $isEdit ? $note->invoice_number : ($invoice->number ?? '')) }}" placeholder="INV...">
+            <div class="helper">เลือกหรือกรอกใบแจ้งหนี้ที่จะอ้างอิง</div>
           </div>
           <div>
             <label class="fa-label">เหตุผล / หมายเหตุ</label>
@@ -204,10 +212,10 @@ body{background:var(--bg);color:var(--ink)}
             @foreach($items as $idx => $it)
               <tr>
                 <td><input name="items[{{ $idx }}][description]" value="{{ $it['description'] ?? '' }}" placeholder="รายละเอียด"></td>
-                <td><input name="items[{{ $idx }}][qty]" type="number" step="0.01" value="{{ $it['qty'] ?? 1 }}"></td>
-                <td><input name="items[{{ $idx }}][unit_price]" type="number" step="0.01" value="{{ $it['unit_price'] ?? 0 }}"></td>
+                <td><input class="cn-qty" name="items[{{ $idx }}][qty]" type="number" step="0.01" value="{{ $it['qty'] ?? 1 }}"></td>
+                <td><input class="cn-price" name="items[{{ $idx }}][unit_price]" type="number" step="0.01" value="{{ $it['unit_price'] ?? 0 }}"></td>
                 <td><input name="items[{{ $idx }}][unit]" value="{{ $it['unit'] ?? '' }}"></td>
-                <td><input name="items[{{ $idx }}][line_total]" type="number" step="0.01" value="{{ $it['line_total'] ?? 0 }}"></td>
+                <td><input class="cn-line" name="items[{{ $idx }}][line_total]" type="number" step="0.01" value="{{ $it['line_total'] ?? 0 }}"></td>
               </tr>
             @endforeach
           </tbody>
@@ -219,9 +227,9 @@ body{background:var(--bg);color:var(--ink)}
         <div class="section-title">สรุปยอด</div>
         <div class="helper">ยอดรวมจะใช้ตามรายการด้านซ้าย ถ้าปรับเองให้ใส่ตัวเลข</div>
         <div class="fa-totals">
-          <div class="row"><span>Subtotal</span><input class="fa-input" type="number" step="0.01" name="subtotal" value="{{ old('subtotal', $isEdit ? $note->subtotal : ($invoice->subtotal ?? 0)) }}"></div>
-          <div class="row"><span>Tax</span><input class="fa-input" type="number" step="0.01" name="tax" value="{{ old('tax', $isEdit ? $note->tax : 0) }}"></div>
-          <div class="row"><span><strong>Total</strong></span><input class="fa-input" type="number" step="0.01" name="total" value="{{ old('total', $isEdit ? $note->total : ($invoice->total ?? 0)) }}"></div>
+          <div class="row"><span>Subtotal</span><input class="fa-input" id="subtotal" type="number" step="0.01" name="subtotal" value="{{ old('subtotal', $isEdit ? $note->subtotal : ($invoice->subtotal ?? 0)) }}" readonly></div>
+          <div class="row"><span>Tax</span><input class="fa-input" id="tax" type="number" step="0.01" name="tax" value="{{ old('tax', $isEdit ? $note->tax : 0) }}"></div>
+          <div class="row"><span><strong>Total</strong></span><input class="fa-input" id="total" type="number" step="0.01" name="total" value="{{ old('total', $isEdit ? $note->total : ($invoice->total ?? 0)) }}" readonly></div>
           <div class="row"><span>Currency</span><input class="fa-input" name="currency" value="{{ old('currency', $isEdit ? ($note->currency ?? 'THB') : ($invoice->currency ?? 'THB')) }}"></div>
         </div>
       </div>
@@ -229,17 +237,111 @@ body{background:var(--bg);color:var(--ink)}
   </div>
 </form>
 <script>
-  function addCNRow(){
+  const invoices = @json($invoiceOptions->map(function($inv){
+    return [
+      'id' => $inv->id,
+      'number' => $inv->number,
+      'issue_date' => optional($inv->issue_date)->toDateString(),
+      'customer_name' => $inv->customer_name,
+      'customer_address' => $inv->customer_address,
+      'customer_tax_id' => $inv->customer_tax_id,
+      'customer_branch_type' => $inv->customer_branch_type,
+      'customer_branch_code' => $inv->customer_branch_code,
+      'subtotal' => $inv->subtotal,
+      'tax' => $inv->tax,
+      'total' => $inv->total,
+      'currency' => $inv->currency ?? 'THB',
+      'items' => $inv->items?->map(function($it){
+        return [
+          'description' => $it->description,
+          'qty' => $it->qty ?? $it->quantity ?? 1,
+          'unit_price' => $it->unit_price ?? $it->price ?? 0,
+          'unit' => $it->unit,
+        ];
+      })->values()->all(),
+    ];
+  })->values());
+
+  function addCNRow(rowData = {}){
     const tbody = document.getElementById('cn-items');
     const idx = tbody.children.length;
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td><input name="items[${idx}][description]" placeholder="รายละเอียด"></td>
-      <td><input name="items[${idx}][qty]" type="number" step="0.01" value="1"></td>
-      <td><input name="items[${idx}][unit_price]" type="number" step="0.01" value="0"></td>
-      <td><input name="items[${idx}][unit]" value=""></td>
-      <td><input name="items[${idx}][line_total]" type="number" step="0.01" value="0"></td>
+      <td><input name="items[${idx}][description]" placeholder="รายละเอียด" value="${rowData.description ?? ''}"></td>
+      <td><input class="cn-qty" name="items[${idx}][qty]" type="number" step="0.01" value="${rowData.qty ?? 1}"></td>
+      <td><input class="cn-price" name="items[${idx}][unit_price]" type="number" step="0.01" value="${rowData.unit_price ?? 0}"></td>
+      <td><input name="items[${idx}][unit]" value="${rowData.unit ?? ''}"></td>
+      <td><input class="cn-line" name="items[${idx}][line_total]" type="number" step="0.01" value="${rowData.line_total ?? 0}"></td>
     `;
     tbody.appendChild(tr);
+    bindRowEvents(tr);
+    recalcTotals();
   }
+
+  function bindRowEvents(tr){
+    const qty = tr.querySelector('.cn-qty');
+    const price = tr.querySelector('.cn-price');
+    const line = tr.querySelector('.cn-line');
+    [qty, price].forEach(el => el?.addEventListener('input', () => {
+      const q = parseFloat(qty.value) || 0;
+      const p = parseFloat(price.value) || 0;
+      line.value = (q * p).toFixed(2);
+      recalcTotals();
+    }));
+    line?.addEventListener('input', recalcTotals);
+  }
+
+  function recalcTotals(){
+    const lines = document.querySelectorAll('.cn-line');
+    let subtotal = 0;
+    lines.forEach(input => subtotal += parseFloat(input.value) || 0);
+    const subtotalInput = document.getElementById('subtotal');
+    const taxInput = document.getElementById('tax');
+    const totalInput = document.getElementById('total');
+    subtotalInput.value = subtotal.toFixed(2);
+    const tax = parseFloat(taxInput.value) || 0;
+    totalInput.value = (subtotal + tax).toFixed(2);
+  }
+
+  function hydrateFromInvoice(id){
+    const inv = invoices.find(i => String(i.id) === String(id));
+    if (!inv) return;
+    document.getElementById('invoice-number').value = inv.number || '';
+    document.querySelector('input[name="issue_date"]').value = inv.issue_date || document.querySelector('input[name="issue_date"]').value;
+    document.querySelector('input[name="customer_name"]').value = inv.customer_name || '';
+    document.querySelector('input[name="customer_tax_id"]').value = inv.customer_tax_id || '';
+    document.querySelector('select[name="customer_branch_type"]').value = inv.customer_branch_type || '';
+    document.querySelector('input[name="customer_branch_code"]').value = inv.customer_branch_code || '';
+    document.querySelector('textarea[name="customer_address"]').value = inv.customer_address || '';
+    document.querySelector('input[name="currency"]').value = inv.currency || 'THB';
+
+    const tbody = document.getElementById('cn-items');
+    tbody.innerHTML = '';
+    (inv.items || []).forEach(it => {
+      addCNRow({
+        description: it.description,
+        qty: it.qty,
+        unit_price: it.unit_price,
+        unit: it.unit,
+        line_total: (it.qty || 0) * (it.unit_price || 0),
+      });
+    });
+    if (!inv.items || inv.items.length === 0) {
+      addCNRow();
+    }
+    document.getElementById('tax').value = inv.tax ?? 0;
+    recalcTotals();
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('#cn-items tr').forEach(bindRowEvents);
+    document.getElementById('tax')?.addEventListener('input', recalcTotals);
+    document.getElementById('invoice-select')?.addEventListener('change', (e) => {
+      const val = e.target.value;
+      if (val) {
+        hydrateFromInvoice(val);
+      }
+    });
+    recalcTotals();
+  });
 </script>
