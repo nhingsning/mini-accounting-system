@@ -11,6 +11,7 @@ use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\QuotationController;
 use App\Http\Controllers\CustomersController;   // <-- เพิ่มอันนี้ (พหูพจน์) สำหรับ API
 use App\Http\Controllers\CustomerController;    // <-- อันนี้ (เอกพจน์) สำหรับ resource CRUD หน้าเว็บ
+use App\Http\Controllers\LocaleController;
 
 /*
 |--------------------------------------------------------------------------
@@ -32,6 +33,8 @@ Route::prefix('api')->group(function () {
 Route::get('/auth', [AuthController::class, 'show'])
     ->name('auth.page')
     ->middleware('guest');
+
+Route::post('/locale', [LocaleController::class, 'update'])->name('locale.update');
 
 Route::get('/login', fn () => redirect()->route('auth.page'))
     ->name('login')

@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title','Credit / Debit Notes')
+@section('title', __('ui.credit_notes.title'))
 
 @section('body')
 <div class="layout">
@@ -11,31 +11,34 @@
       <button id="menuToggle" class="btn btn-soft rounded-circle p-2 d-lg-none" aria-label="Menu">
         <i class="bi bi-list"></i>
       </button>
-      <h2 class="m-0">Credit / Debit Notes</h2>
+      <h2 class="m-0">{{ __('ui.credit_notes.title') }}</h2>
       <div class="ms-auto"></div>
-      <a href="{{ route('credit-notes.create') }}" class="btn btn-brand d-none d-sm-inline-flex"><i class="bi bi-plus-lg me-1"></i> สร้างเอกสาร</a>
+      <a href="{{ route('credit-notes.create') }}" class="btn btn-brand d-none d-sm-inline-flex"><i class="bi bi-plus-lg me-1"></i> {{ __('ui.credit_notes.new') }}</a>
       <a href="{{ route('credit-notes.create') }}" class="btn btn-brand d-sm-none"><i class="bi bi-plus-lg"></i></a>
     </div>
 
     @php
-      $typeLabel = ['credit' => 'Credit Note','debit' => 'Debit Note'];
+      $typeLabel = [
+        'credit' => __('ui.credit_notes.filters.credit'),
+        'debit' => __('ui.credit_notes.filters.debit'),
+      ];
     @endphp
     <div class="container-fluid py-3">
       <form method="GET" class="row g-2 align-items-end mb-3">
         <div class="col-md-4">
-          <label class="form-label">ค้นหา</label>
-          <input type="text" name="q" class="form-control" value="{{ $q }}" placeholder="เลขเอกสาร / ลูกค้า / Invoice">
+          <label class="form-label">{{ __('ui.actions.search') }}</label>
+          <input type="text" name="q" class="form-control" value="{{ $q }}" placeholder="{{ __('ui.credit_notes.search_placeholder') }}">
         </div>
         <div class="col-md-3">
-          <label class="form-label">ประเภท</label>
+          <label class="form-label">{{ __('ui.credit_notes.filters.type') }}</label>
           <select name="type" class="form-select">
-            <option value="">ทั้งหมด</option>
-            <option value="credit" {{ $type==='credit'?'selected':'' }}>Credit Note</option>
-            <option value="debit" {{ $type==='debit'?'selected':'' }}>Debit Note</option>
+            <option value="">{{ __('ui.credit_notes.filters.all') }}</option>
+            <option value="credit" {{ $type==='credit'?'selected':'' }}>{{ __('ui.credit_notes.filters.credit') }}</option>
+            <option value="debit" {{ $type==='debit'?'selected':'' }}>{{ __('ui.credit_notes.filters.debit') }}</option>
           </select>
         </div>
         <div class="col-md-2">
-          <button class="btn btn-outline-secondary w-100" type="submit">ค้นหา</button>
+          <button class="btn btn-outline-secondary w-100" type="submit">{{ __('ui.actions.search') }}</button>
         </div>
       </form>
 
@@ -44,12 +47,12 @@
           <table class="table align-middle mb-0">
             <thead class="table-light">
               <tr>
-                <th>เลขเอกสาร</th>
-                <th>ประเภท</th>
-                <th>Invoice</th>
-                <th>ลูกค้า</th>
-                <th>สถานะ</th>
-                <th class="text-end">ยอดรวม</th>
+                <th>{{ __('ui.credit_notes.table.number') }}</th>
+                <th>{{ __('ui.credit_notes.table.type') }}</th>
+                <th>{{ __('ui.credit_notes.table.invoice') }}</th>
+                <th>{{ __('ui.credit_notes.table.customer') }}</th>
+                <th>{{ __('ui.credit_notes.table.status') }}</th>
+                <th class="text-end">{{ __('ui.credit_notes.table.total') }}</th>
                 <th></th>
               </tr>
             </thead>
@@ -63,11 +66,11 @@
                   <td>{{ ucfirst($note->status) }}</td>
                   <td class="text-end">{{ number_format($note->total ?? 0,2) }}</td>
                   <td class="text-end">
-                    <a href="{{ route('credit-notes.edit', $note->number ?? $note->id) }}" class="btn btn-sm btn-outline-primary">แก้ไข</a>
+                    <a href="{{ route('credit-notes.edit', $note->number ?? $note->id) }}" class="btn btn-sm btn-outline-primary">{{ __('ui.actions.edit') }}</a>
                   </td>
                 </tr>
               @empty
-                <tr><td colspan="7" class="text-center text-muted py-4">ยังไม่มีข้อมูล</td></tr>
+                <tr><td colspan="7" class="text-center text-muted py-4">{{ __('ui.credit_notes.table.empty') }}</td></tr>
               @endforelse
             </tbody>
           </table>

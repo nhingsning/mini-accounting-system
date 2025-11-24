@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title','Credit / Debit Note')
+@section('title', __('ui.credit_notes.title'))
 
 @section('body')
 <div class="layout">
@@ -11,9 +11,9 @@
       <button id="menuToggle" class="btn btn-soft rounded-circle p-2 d-lg-none" aria-label="Menu">
         <i class="bi bi-list"></i>
       </button>
-      <h2 class="m-0">Credit / Debit Notes</h2>
+      <h2 class="m-0">{{ __('ui.credit_notes.title') }}</h2>
       <div class="ms-auto"></div>
-      <a href="{{ route('credit-notes.index') }}" class="btn btn-light"><i class="bi bi-arrow-left"></i> Back</a>
+      <a href="{{ route('credit-notes.index') }}" class="btn btn-light"><i class="bi bi-arrow-left"></i> {{ __('ui.actions.back') }}</a>
     </div>
 
     @php

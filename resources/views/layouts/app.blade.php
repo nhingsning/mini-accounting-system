@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="{{ str_replace('_','-',app()->getLocale()) }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -59,11 +59,17 @@
     /* Chart containers */
     .chart-container{position:relative; width:100%}
     .chart-container canvas{width:100%!important; height:auto!important}
+
+    /* Language switcher */
+    .language-switcher{position:fixed; right:18px; top:14px; z-index:1200; background:#fff; border:1px solid #e5e7eb; border-radius:14px; padding:6px 10px; box-shadow:var(--shadow); display:flex; align-items:center; gap:8px; min-width:180px}
+    .language-switcher label{font-size:12px; color:var(--muted); margin:0}
+    .language-switcher select{border:1px solid #dce3ef; border-radius:10px; padding:6px 8px; font-size:13px; background:#f8fafc}
   </style>
 
   @stack('head')
 </head>
 <body>
+  @include('partials.language-switcher')
   @yield('body')
 @yield('content')
 
