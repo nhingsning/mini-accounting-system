@@ -60,7 +60,7 @@ class InvoiceController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'number'               => ['nullable','string','max:255', Rule::unique('invoices','number')],
+            'number'               => ['nullable','string','max:255', $this->invoiceNumberRule()],
             'quotation_number'     => 'nullable|string|max:255',
             'customer_id'          => 'nullable|integer|exists:customers,id',
             'customer_name'        => 'required|string|max:255',
@@ -169,7 +169,7 @@ class InvoiceController extends Controller
         $invoice = $this->findByKey($key);
 
         $data = $request->validate([
-            'number'               => ['nullable','string','max:255', Rule::unique('invoices','number')->ignore($invoice->id)],
+            'number'               => ['nullable','string','max:255', $this->invoiceNumberRule($invoice->id)],
             'quotation_number'     => 'nullable|string|max:255',
             'customer_id'          => 'nullable|integer|exists:customers,id',
             'customer_name'        => 'required|string|max:255',
@@ -217,6 +217,21 @@ class InvoiceController extends Controller
             'paid'      => 'Paid',
             'cancelled' => 'Cancelled / Void',
         ];
+    }
+
+    private function invoiceNumberRule(?int $ignoreId = null): Rule
+    {
+        $rule = Rule::unique('invoices', 'number');
+
+        if (Schema::hasColumn('invoices', 'status')) {
+            $rule = $rule->where(fn ($q) => $q->whereNotIn('status', ['cancelled', 'void']));
+        }
+
+        if ($ignoreId) {
+            $rule = $rule->ignore($ignoreId);
+        }
+
+        return $rule;
     }
 
     private function allowedStatusValues(): array
