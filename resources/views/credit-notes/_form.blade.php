@@ -39,6 +39,30 @@
     'cancelled' => 'Cancelled / Void',
   ];
   $docTitle = $type === 'debit' ? 'Debit Note' : 'Credit Note';
+  $invoicePayload = $invoiceOptions->map(function($inv){
+    return [
+      'id' => $inv->id,
+      'number' => $inv->number,
+      'issue_date' => optional($inv->issue_date)->toDateString(),
+      'customer_name' => $inv->customer_name,
+      'customer_address' => $inv->customer_address,
+      'customer_tax_id' => $inv->customer_tax_id,
+      'customer_branch_type' => $inv->customer_branch_type,
+      'customer_branch_code' => $inv->customer_branch_code,
+      'subtotal' => $inv->subtotal,
+      'tax' => $inv->tax,
+      'total' => $inv->total,
+      'currency' => $inv->currency ?? 'THB',
+      'items' => $inv->items?->map(function($it){
+        return [
+          'description' => $it->description,
+          'qty' => $it->qty ?? $it->quantity ?? 1,
+          'unit_price' => $it->unit_price ?? $it->price ?? 0,
+          'unit' => $it->unit,
+        ];
+      })->values()->all(),
+    ];
+  })->values();
 @endphp
 
 <style>
@@ -227,40 +251,21 @@ body{background:var(--bg);color:var(--ink)}
         <div class="section-title">สรุปยอด</div>
         <div class="helper">ยอดรวมจะใช้ตามรายการด้านซ้าย ถ้าปรับเองให้ใส่ตัวเลข</div>
         <div class="fa-totals">
-          <div class="row"><span>Subtotal</span><input class="fa-input" id="subtotal" type="number" step="0.01" name="subtotal" value="{{ old('subtotal', $isEdit ? $note->subtotal : ($invoice->subtotal ?? 0)) }}" readonly></div>
-          <div class="row"><span>Tax</span><input class="fa-input" id="tax" type="number" step="0.01" name="tax" value="{{ old('tax', $isEdit ? $note->tax : 0) }}"></div>
-          <div class="row"><span><strong>Total</strong></span><input class="fa-input" id="total" type="number" step="0.01" name="total" value="{{ old('total', $isEdit ? $note->total : ($invoice->total ?? 0)) }}" readonly></div>
-          <div class="row"><span>Currency</span><input class="fa-input" name="currency" value="{{ old('currency', $isEdit ? ($note->currency ?? 'THB') : ($invoice->currency ?? 'THB')) }}"></div>
+          <div class="row"><span>Subtotal</span><input class="fa-input" id="subtotal" type="number" step="0.01" name="subtotal"
+            value="{{ old('subtotal', $isEdit ? $note->subtotal : ($invoice->subtotal ?? 0)) }}" readonly></div>
+          <div class="row"><span>Tax</span><input class="fa-input" id="tax" type="number" step="0.01" name="tax"
+            value="{{ old('tax', $isEdit ? $note->tax : 0) }}"></div>
+          <div class="row"><span><strong>Total</strong></span><input class="fa-input" id="total" type="number" step="0.01"
+            name="total" value="{{ old('total', $isEdit ? $note->total : ($invoice->total ?? 0)) }}" readonly></div>
+          <div class="row"><span>Currency</span><input class="fa-input" name="currency"
+            value="{{ old('currency', $isEdit ? ($note->currency ?? 'THB') : ($invoice->currency ?? 'THB')) }}"></div>
         </div>
       </div>
     </div>
   </div>
 </form>
 <script>
-  const invoices = @json($invoiceOptions->map(function($inv){
-    return [
-      'id' => $inv->id,
-      'number' => $inv->number,
-      'issue_date' => optional($inv->issue_date)->toDateString(),
-      'customer_name' => $inv->customer_name,
-      'customer_address' => $inv->customer_address,
-      'customer_tax_id' => $inv->customer_tax_id,
-      'customer_branch_type' => $inv->customer_branch_type,
-      'customer_branch_code' => $inv->customer_branch_code,
-      'subtotal' => $inv->subtotal,
-      'tax' => $inv->tax,
-      'total' => $inv->total,
-      'currency' => $inv->currency ?? 'THB',
-      'items' => $inv->items?->map(function($it){
-        return [
-          'description' => $it->description,
-          'qty' => $it->qty ?? $it->quantity ?? 1,
-          'unit_price' => $it->unit_price ?? $it->price ?? 0,
-          'unit' => $it->unit,
-        ];
-      })->values()->all(),
-    ];
-  })->values());
+  const invoices = @json($invoicePayload);
 
   function addCNRow(rowData = {}){
     const tbody = document.getElementById('cn-items');
