@@ -9,7 +9,6 @@ use Dompdf\Options;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
-use Illuminate\Contracts\Validation\ValidationRule;
 
 class InvoiceController extends Controller
 {
@@ -220,7 +219,7 @@ class InvoiceController extends Controller
         ];
     }
 
-    private function invoiceNumberRule(?int $ignoreId = null): ValidationRule
+    private function invoiceNumberRule(?int $ignoreId = null)
     {
         $rule = Rule::unique('invoices', 'number');
 
