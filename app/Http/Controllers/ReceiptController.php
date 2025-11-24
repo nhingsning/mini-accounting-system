@@ -85,7 +85,7 @@ class ReceiptController extends Controller
         $this->ensureReceiptsTable();
 
         $receipt = $this->findByKey($key);
-        $receipt->loadMissing('invoice');
+        $receipt->loadMissing('invoice.items');
         return view('receipts.show', compact('receipt'));
     }
 
