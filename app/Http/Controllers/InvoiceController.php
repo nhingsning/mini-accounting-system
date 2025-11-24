@@ -83,6 +83,8 @@ class InvoiceController extends Controller
         $data['vat_enabled'] = $request->boolean('vat_enabled');
         $data['status'] = $this->normalizeStatus($data['status'] ?? '');
 
+        $data = $this->filterPersistableColumns($data);
+
         $invoice = Invoice::create($data);
 
         $slug = $invoice->number ?: $invoice->id;
@@ -190,6 +192,8 @@ class InvoiceController extends Controller
         $data['status'] = $this->normalizeStatus($data['status'] ?? $invoice->status);
         $data['total'] = $data['total'] ?? $invoice->total;
 
+        $data = $this->filterPersistableColumns($data);
+
         $invoice->update($data);
 
         $slug = $invoice->number ?: $invoice->id;
@@ -234,5 +238,18 @@ class InvoiceController extends Controller
         return in_array($normalized, array_keys($this->statusOptions()), true)
             ? $normalized
             : 'pending';
+    }
+
+    private function filterPersistableColumns(array $data): array
+    {
+        if (!Schema::hasTable('invoices')) {
+            return $data;
+        }
+
+        $columns = Schema::getColumnListing('invoices');
+
+        return collect($data)
+            ->filter(fn ($value, $key) => in_array($key, $columns, true))
+            ->toArray();
     }
 }
