@@ -120,6 +120,16 @@ body{background:var(--bg)}
           </form>
         @endif
       @endif
+      @if($status !== 'cancelled')
+        <form action="{{ route('invoices.convert.credit-note', $invoice->id) }}" method="POST" style="display:inline">
+          @csrf
+          <button class="fa-btn ghost" type="submit">Credit Note</button>
+        </form>
+        <form action="{{ route('invoices.convert.debit-note', $invoice->id) }}" method="POST" style="display:inline">
+          @csrf
+          <button class="fa-btn ghost" type="submit">Debit Note</button>
+        </form>
+      @endif
     </div>
   </div>
 

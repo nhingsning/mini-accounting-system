@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\CreditNoteController;
 use App\Http\Controllers\ReceiptController;
 use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\QuotationController;
@@ -84,6 +85,12 @@ Route::resource('invoices', InvoiceController::class)
 
 Route::post('/invoices/{invoice}/convert/receipt', [ReceiptController::class, 'fromInvoice'])
     ->name('invoices.convert.receipt');
+Route::post('/invoices/{invoice}/convert/credit-note', [CreditNoteController::class, 'convertFromInvoice'])
+    ->defaults('type', 'credit')
+    ->name('invoices.convert.credit-note');
+Route::post('/invoices/{invoice}/convert/debit-note', [CreditNoteController::class, 'convertFromInvoice'])
+    ->defaults('type', 'debit')
+    ->name('invoices.convert.debit-note');
 
 Route::resource('po', PurchaseOrderController::class)
     ->only(['index','create','store','show','edit','update','destroy']);
@@ -111,6 +118,7 @@ Route::redirect('/quotes/{quotation}/send', '/quotations/{quotation}/send')->nam
 Route::redirect('/quotes/{quotation}/convert', '/quotations/{quotation}/convert')->name('quotes.convert');
 
 Route::resource('receipts', ReceiptController::class)->only(['index','create','store','show','edit','update','destroy']);
+Route::resource('credit-notes', CreditNoteController::class)->only(['index','create','store','show','edit','update','destroy']);
 
 Route::get('/invoices',                [InvoiceController::class, 'index'])->name('invoices.index');
 Route::get('/invoices/{invoiceKey}',   [InvoiceController::class, 'show'])->name('invoices.show');
