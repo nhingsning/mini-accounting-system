@@ -11,6 +11,14 @@
     $unit = (float) data_get($it,'unit_price', data_get($it,'price',0));
     $calcSub += ($qty * $unit);
   }
+  $statusLabels = [
+    'pending'   => 'Pending / Waiting for Approval',
+    'approved'  => 'Approved',
+    'paid'      => 'Paid',
+    'cancelled' => 'Cancelled / Void',
+  ];
+  $statusKey = strtolower($invoice->status ?? 'pending');
+  $statusText = $statusLabels[$statusKey] ?? ucfirst($invoice->status ?? 'draft');
   $taxRate = (float) ($invoice->tax_rate ?? 0);
   $sub = (float) ($invoice->subtotal ?? $calcSub);
   $tax = (float) ($invoice->tax ?? ($sub * ($taxRate/100)));
@@ -66,7 +74,7 @@ body{background:var(--bg)}
   <div class="fa-topbar">
     <div class="fa-title">
       <span>Invoice {{ $invoice->number ?? ('#'.$invoice->id) }}</span>
-      <span class="fa-pill">{{ $invoice->status ?? 'draft' }}</span>
+      <span class="fa-pill">{{ $statusText }}</span>
       @if($quoteRef)
         <span class="fa-pill" style="background:#e8f0fb;color:var(--brand);">From {{ $quoteRef }}</span>
       @endif
@@ -117,7 +125,7 @@ body{background:var(--bg)}
         </div>
         <div>
           <span class="fa-label">Status</span>
-          <div><span class="fa-pill" style="padding:4px 10px; font-size:11px;">{{ ucfirst($invoice->status ?? 'draft') }}</span></div>
+          <div><span class="fa-pill" style="padding:4px 10px; font-size:11px;">{{ $statusText }}</span></div>
         </div>
         <div>
           <span class="fa-label">Quotation</span>

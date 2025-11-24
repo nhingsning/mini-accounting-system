@@ -51,7 +51,9 @@ class InvoiceController extends Controller
     // ===== Create form (HTML view) =====
     public function create()
     {
-        return view('invoices.create');
+        return view('invoices.create', [
+            'statusOptions' => $this->statusOptions(),
+        ]);
     }
 
     // ===== Store action =====
@@ -74,11 +76,12 @@ class InvoiceController extends Controller
             'subtotal'             => 'nullable|numeric',
             'tax'                  => 'nullable|numeric',
             'total'                => 'nullable|numeric',
-            'status'               => 'nullable|string|max:50',
+            'status'               => ['nullable','string','max:50', Rule::in($this->allowedStatusValues())],
             'currency'             => 'nullable|string|max:10',
         ]);
 
         $data['vat_enabled'] = $request->boolean('vat_enabled');
+        $data['status'] = $this->normalizeStatus($data['status'] ?? '');
 
         $invoice = Invoice::create($data);
 
@@ -152,7 +155,10 @@ class InvoiceController extends Controller
     public function edit(string $key)
     {
         $invoice = $this->findByKey($key);
-        return view('invoices.edit', compact('invoice'));
+        return view('invoices.edit', [
+            'invoice'        => $invoice,
+            'statusOptions'  => $this->statusOptions(),
+        ]);
     }
 
     // ===== Update action =====
@@ -165,9 +171,11 @@ class InvoiceController extends Controller
             'quotation_number' => 'nullable|string|max:255',
             'customer_name' => 'required|string|max:255',
             'issue_date'    => 'nullable|date',
-            'status'        => 'required|string|max:50',
+            'status'        => ['required','string','max:50', Rule::in($this->allowedStatusValues())],
             'total'         => 'required|numeric',
         ]);
+
+        $data['status'] = $this->normalizeStatus($data['status']);
 
         $invoice->update($data);
 
@@ -183,5 +191,36 @@ class InvoiceController extends Controller
         $invoice->delete();
 
         return redirect()->route('invoices.index')->with('ok', 'Deleted');
+    }
+
+    private function statusOptions(): array
+    {
+        return [
+            'pending'   => 'Pending / Waiting for Approval',
+            'approved'  => 'Approved',
+            'paid'      => 'Paid',
+            'cancelled' => 'Cancelled / Void',
+        ];
+    }
+
+    private function allowedStatusValues(): array
+    {
+        return array_merge(array_keys($this->statusOptions()), [
+            'draft', 'sent', 'unpaid', 'void', 'cancel', 'waiting', 'waiting for approval', 'waiting_for_approval',
+        ]);
+    }
+
+    private function normalizeStatus(?string $status): string
+    {
+        $normalized = strtolower(trim((string) $status));
+        $normalized = match ($normalized) {
+            'draft', 'sent', 'unpaid', 'waiting', 'waiting for approval', 'waiting_for_approval' => 'pending',
+            'void', 'cancel' => 'cancelled',
+            default => $normalized,
+        };
+
+        return in_array($normalized, array_keys($this->statusOptions()), true)
+            ? $normalized
+            : 'pending';
     }
 }

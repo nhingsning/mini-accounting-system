@@ -13,6 +13,15 @@
     </div>
 
     <div class="container-fluid py-3">
+      @php
+        $statusOptions = $statusOptions ?? [
+          'pending'   => 'Pending / Waiting for Approval',
+          'approved'  => 'Approved',
+          'paid'      => 'Paid',
+          'cancelled' => 'Cancelled / Void',
+        ];
+      @endphp
+
       <form class="panel" method="POST" action="{{ route('invoices.store') }}" autocomplete="off">
         @csrf
         <input type="hidden" name="customer_id" id="customer_id_hidden" value="{{ old('customer_id') }}">
@@ -60,6 +69,16 @@
               <input type="date" name="due_date" class="form-control @error('due_date') is-invalid @enderror"
                      value="{{ old('due_date') }}">
               @error('due_date')<div class="invalid-feedback">{{ $message }}</div>@enderror
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Status</label>
+              @php $st = old('status','pending'); @endphp
+              <select name="status" class="form-select">
+                @foreach($statusOptions as $key => $label)
+                  <option value="{{ $key }}" {{ $st === $key ? 'selected' : '' }}>{{ $label }}</option>
+                @endforeach
+              </select>
+              <div class="form-text">เลือกระยะสถานะของใบแจ้งหนี้ (เริ่มต้น Pending)</div>
             </div>
 
             {{-- auto-fill fields --}}

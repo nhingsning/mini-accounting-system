@@ -652,7 +652,7 @@ class QuotationController extends Controller
             $inv->subtotal      = 0;
             $inv->tax           = 0;
             $inv->total         = 0;
-            $inv->status        = 'unpaid';
+            $inv->status        = 'pending';
             $inv->save();
 
             // รายการ

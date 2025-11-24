@@ -21,6 +21,15 @@
         </div>
       @endif
 
+      @php
+        $statusOptions = $statusOptions ?? [
+          'pending'   => 'Pending / Waiting for Approval',
+          'approved'  => 'Approved',
+          'paid'      => 'Paid',
+          'cancelled' => 'Cancelled / Void',
+        ];
+      @endphp
+
       <form class="panel" method="POST" action="{{ route('invoices.update', $invoice) }}" autocomplete="off">
         @csrf
         @method('PUT')
@@ -75,6 +84,16 @@
                      class="form-control @error('due_date') is-invalid @enderror"
                      value="{{ old('due_date', optional($invoice->due_date)->toDateString()) }}">
               @error('due_date')<div class="invalid-feedback">{{ $message }}</div>@enderror
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Status</label>
+              @php $st = old('status', $invoice->status ?? 'pending'); @endphp
+              <select name="status" class="form-select">
+                @foreach($statusOptions as $key => $label)
+                  <option value="{{ $key }}" {{ $st === $key ? 'selected' : '' }}>{{ $label }}</option>
+                @endforeach
+              </select>
+              <div class="form-text">เลือกสถานะใบแจ้งหนี้ เช่น Pending, Approved, Paid</div>
             </div>
 
             {{-- auto-fill fields --}}
