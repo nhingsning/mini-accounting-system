@@ -2,7 +2,6 @@
 
 namespace App\Providers;
 
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\URL;
@@ -39,10 +38,56 @@ class AppServiceProvider extends ServiceProvider
             touch($databasePath);
         }
 
+        if (! Schema::hasTable('credit_notes')) {
+            $this->createCreditNotesTable();
+        }
+
+        if (! Schema::hasTable('credit_note_items')) {
+            $this->createCreditNoteItemsTable();
+        }
+    }
+
+    protected function createCreditNotesTable(): void
+    {
         try {
-            if (! Schema::hasTable('credit_notes') || ! Schema::hasTable('credit_note_items')) {
-                Artisan::call('migrate', ['--force' => true]);
-            }
+            Schema::create('credit_notes', function ($table) {
+                $table->id();
+                $table->string('number')->nullable()->unique();
+                $table->unsignedBigInteger('invoice_id')->nullable();
+                $table->string('invoice_number')->nullable();
+                $table->enum('type', ['credit', 'debit'])->default('credit');
+                $table->string('status')->default('draft');
+                $table->date('issue_date')->nullable();
+                $table->string('customer_name')->nullable();
+                $table->text('customer_address')->nullable();
+                $table->string('customer_tax_id')->nullable();
+                $table->string('customer_branch_type')->nullable();
+                $table->string('customer_branch_code')->nullable();
+                $table->text('reason')->nullable();
+                $table->decimal('subtotal', 12, 2)->default(0);
+                $table->decimal('tax', 12, 2)->default(0);
+                $table->decimal('total', 12, 2)->default(0);
+                $table->string('currency')->nullable();
+                $table->timestamps();
+            });
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
+    protected function createCreditNoteItemsTable(): void
+    {
+        try {
+            Schema::create('credit_note_items', function ($table) {
+                $table->id();
+                $table->unsignedBigInteger('credit_note_id');
+                $table->string('description')->nullable();
+                $table->decimal('qty', 12, 2)->default(1);
+                $table->decimal('unit_price', 12, 2)->default(0);
+                $table->decimal('line_total', 12, 2)->default(0);
+                $table->string('unit')->nullable();
+                $table->timestamps();
+            });
         } catch (\Throwable $e) {
             report($e);
         }
