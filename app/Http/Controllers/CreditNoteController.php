@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\CreditNote;
 use App\Models\CreditNoteItem;
 use App\Models\Invoice;
+use App\Services\AuditLogger;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
@@ -44,6 +46,7 @@ class CreditNoteController extends Controller
         return view('credit-notes.create', [
             'invoice' => $invoice,
             'statusOptions' => $this->statusOptions(),
+            'invoiceOptions' => $this->invoiceOptions(),
         ]);
     }
 
@@ -68,11 +71,35 @@ class CreditNoteController extends Controller
 
         $data = $this->filterPersistableColumns($data);
 
-        $note = DB::transaction(function () use ($data, $items) {
+        $note = DB::transaction(function () use ($data, $items, $request) {
             $note = CreditNote::create($data);
 
             foreach ($items as $item) {
                 $note->items()->create($item);
+            }
+
+            AuditLogger::record($note, $request->user(), 'created', [
+                'status' => $note->status,
+                'total'  => $note->total,
+            ]);
+
+            if (Schema::hasTable('document_approvals')) {
+                $note->approvals()->create([
+                    'step'     => 1,
+                    'role'     => 'drafter',
+                    'status'   => 'approved',
+                    'acted_at' => now(),
+                    'user_id'  => $request->user()?->getAuthIdentifier(),
+                ]);
+                $note->approvals()->create([
+                    'step'   => 2,
+                    'role'   => 'approver',
+                    'status' => 'pending',
+                ]);
+                $note->forceFill([
+                    'approval_status' => 'in_review',
+                    'approval_step'   => 2,
+                ])->saveQuietly();
             }
 
             return $note;
@@ -85,7 +112,27 @@ class CreditNoteController extends Controller
     public function show(string $key)
     {
         $note = $this->findNote($key);
-        $note->loadMissing(['invoice', 'items' => fn ($q) => $q->orderBy('id')]);
+        $approvalsAvailable = Schema::hasTable('document_approvals');
+        $auditAvailable = Schema::hasTable('audit_logs');
+
+        $relations = [
+            'invoice',
+            'items' => fn ($q) => $q->orderBy('id'),
+        ];
+        if ($approvalsAvailable) {
+            $relations[] = 'approvals.user';
+        }
+        if ($auditAvailable) {
+            $relations[] = 'auditLogs.user';
+        }
+
+        $note->loadMissing($relations);
+        if (!$approvalsAvailable) {
+            $note->setRelation('approvals', collect());
+        }
+        if (!$auditAvailable) {
+            $note->setRelation('auditLogs', collect());
+        }
 
         return view('credit-notes.show', ['note' => $note]);
     }
@@ -99,12 +146,14 @@ class CreditNoteController extends Controller
             'note' => $note,
             'invoice' => $note->invoice,
             'statusOptions' => $this->statusOptions(),
+            'invoiceOptions' => $this->invoiceOptions(),
         ]);
     }
 
     public function update(Request $request, string $key)
     {
         $note = $this->findNote($key);
+        $before = $note->only(['status', 'total', 'approval_status', 'approval_step']);
 
         $data = $this->validateData($request, $note->id);
         $items = $this->validatedItems($request);
@@ -133,8 +182,35 @@ class CreditNoteController extends Controller
             }
         });
 
+        $note->refresh();
+        $tracked = ['status', 'total', 'approval_status', 'approval_step'];
+        $changes = [];
+        foreach ($tracked as $field) {
+            if (($before[$field] ?? null) !== $note->{$field}) {
+                $changes[$field] = [
+                    'from' => $before[$field] ?? null,
+                    'to'   => $note->{$field},
+                ];
+            }
+        }
+
+        if ($changes) {
+            AuditLogger::record($note, $request->user(), 'updated', $changes);
+        }
+
         $slug = $note->number ?: $note->id;
         return redirect()->route('credit-notes.show', $slug)->with('ok', 'อัปเดตแล้ว');
+    }
+
+    protected function invoiceOptions()
+    {
+        return Invoice::query()
+            ->with(['items' => fn ($q) => $q->orderBy('id')])
+            ->onlyInvoices()
+            ->orderByDesc('issue_date')
+            ->orderByDesc('id')
+            ->limit(100)
+            ->get();
     }
 
     public function destroy(string $key)
@@ -143,6 +219,101 @@ class CreditNoteController extends Controller
         $note->delete();
 
         return redirect()->route('credit-notes.index')->with('ok', 'ลบข้อมูลแล้ว');
+    }
+
+    public function submitForApproval(Request $request, string $key)
+    {
+        $note = $this->findNote($key);
+
+        DB::transaction(function () use ($note, $request) {
+            if (!$note->approvals()->where('status', 'pending')->exists()) {
+                $note->approvals()->create([
+                    'step'   => max(1, (int) $note->approval_step + 1),
+                    'role'   => 'approver',
+                    'status' => 'pending',
+                ]);
+            }
+
+            $note->forceFill([
+                'approval_status' => 'in_review',
+                'approval_step'   => $note->approvals()->where('status', 'pending')->min('step') ?? 1,
+            ])->saveQuietly();
+
+            AuditLogger::record($note, $request->user(), 'submitted_for_approval', [
+                'step' => $note->approval_step,
+            ]);
+        });
+
+        return redirect()->route('credit-notes.show', $note->number ?? $note->id)
+            ->with('ok', 'ส่งอนุมัติแล้ว');
+    }
+
+    public function approve(Request $request, string $key)
+    {
+        $note = $this->findNote($key);
+        $user = Auth::user();
+        $this->ensureApproverRole($user);
+
+        $approval = $note->approvals()->where('status', 'pending')->orderBy('step')->first();
+        if (!$approval) {
+            return redirect()->back()->with('ok', 'ไม่มีรายการรออนุมัติ');
+        }
+
+        DB::transaction(function () use ($approval, $note, $request, $user) {
+            $approval->update([
+                'status'   => 'approved',
+                'comment'  => $request->input('comment'),
+                'acted_at' => now(),
+                'user_id'  => $user?->getAuthIdentifier(),
+            ]);
+
+            $note->forceFill([
+                'approval_status' => 'approved',
+                'approval_step'   => $approval->step,
+            ])->saveQuietly();
+
+            AuditLogger::record($note, $user, 'approved', [
+                'step'    => $approval->step,
+                'comment' => $request->input('comment'),
+            ]);
+        });
+
+        return redirect()->route('credit-notes.show', $note->number ?? $note->id)
+            ->with('ok', 'อนุมัติแล้ว');
+    }
+
+    public function reject(Request $request, string $key)
+    {
+        $note = $this->findNote($key);
+        $user = Auth::user();
+        $this->ensureApproverRole($user);
+
+        $approval = $note->approvals()->where('status', 'pending')->orderBy('step')->first();
+        if (!$approval) {
+            return redirect()->back()->with('ok', 'ไม่มีรายการรออนุมัติ');
+        }
+
+        DB::transaction(function () use ($approval, $note, $request, $user) {
+            $approval->update([
+                'status'   => 'rejected',
+                'comment'  => $request->input('comment'),
+                'acted_at' => now(),
+                'user_id'  => $user?->getAuthIdentifier(),
+            ]);
+
+            $note->forceFill([
+                'approval_status' => 'rejected',
+                'approval_step'   => $approval->step,
+            ])->saveQuietly();
+
+            AuditLogger::record($note, $user, 'rejected', [
+                'step'    => $approval->step,
+                'comment' => $request->input('comment'),
+            ]);
+        });
+
+        return redirect()->route('credit-notes.show', $note->number ?? $note->id)
+            ->with('ok', 'ปฏิเสธแล้ว');
     }
 
     public function convertFromInvoice(Request $request, string $invoiceKey, string $type)
@@ -256,6 +427,13 @@ class CreditNoteController extends Controller
             $rule = $rule->ignore($ignoreId);
         }
         return $rule;
+    }
+
+    private function ensureApproverRole($user): void
+    {
+        $role = strtolower((string) ($user->role ?? ''));
+        $allowed = ['approver', 'admin', 'manager'];
+        abort_unless(in_array($role, $allowed, true), 403, 'Approval permission required');
     }
 
     private function nextNumber(string $type): string

@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('title','Invoices')
+@section('title', __('ui.invoices.title'))
 
 @section('body')
 <div class="layout">
@@ -18,7 +18,7 @@
         method="GET"
         class="search"
         role="search"
-        aria-label="Search invoices"
+        aria-label="{{ __('ui.actions.search') }}"
       >
         <i class="bi bi-search"></i>
         <input
@@ -26,15 +26,15 @@
           type="search"
           name="q"
           value="{{ old('q', $q ?? request('q')) }}"
-          placeholder="Search invoices…"
+          placeholder="{{ __('ui.invoices.search_placeholder') }}"
           autocomplete="off"
         >
-        <button type="submit" class="visually-hidden">Search</button>
+        <button type="submit" class="visually-hidden">{{ __('ui.actions.search') }}</button>
       </form>
 
       <a href="{{ Route::has('invoices.create') ? route('invoices.create') : url('/invoices/create') }}"
          class="btn btn-brand d-none d-sm-inline-flex ms-auto">
-        <i class="bi bi-plus-lg me-1"></i> New Invoice
+        <i class="bi bi-plus-lg me-1"></i> {{ __('ui.invoices.new') }}
       </a>
     </div>
 
@@ -51,16 +51,16 @@
       <div class="panel">
         <div class="panel-header d-flex justify-content-between align-items-center">
           <div>
-            <strong>Invoices</strong>
+            <strong>{{ __('ui.invoices.title') }}</strong>
             @if(($q ?? null) !== null && $q !== '')
-              <span class="text-muted">— search: “{{ $q }}”</span>
+              <span class="text-muted">— {{ __('ui.actions.search') }}: “{{ $q }}”</span>
             @endif>
           </div>
           <div class="d-flex align-items-center gap-3">
-            <span class="text-muted small">Total: {{ $invoices->total() }}</span>
+            <span class="text-muted small">{{ __('ui.invoices.count_label', ['count' => $invoices->total()]) }}</span>
             <a href="{{ Route::has('invoices.create') ? route('invoices.create') : url('/invoices/create') }}"
                class="btn btn-brand btn-sm">
-              <i class="bi bi-plus-lg me-1"></i> New
+              <i class="bi bi-plus-lg me-1"></i> {{ __('ui.actions.create') }}
             </a>
           </div>
         </div>
@@ -70,12 +70,12 @@
             <table class="table align-middle">
               <thead class="table-light">
                 <tr>
-                  <th>#</th>
-                  <th>Customer</th>
-                  <th>Date</th>
-                  <th class="text-end">Amount</th>
-                  <th>Status</th>
-                  <th class="text-end">Actions</th>
+                  <th>{{ __('ui.invoices.table.number') }}</th>
+                  <th>{{ __('ui.invoices.table.customer') }}</th>
+                  <th>{{ __('ui.invoices.table.date') }}</th>
+                  <th class="text-end">{{ __('ui.invoices.table.amount') }}</th>
+                  <th>{{ __('ui.invoices.table.status') }}</th>
+                  <th class="text-end">{{ __('ui.invoices.table.actions') }}</th>
                 </tr>
               </thead>
               <tbody>

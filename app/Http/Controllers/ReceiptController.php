@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Invoice;
 use App\Models\Receipt;
+use Dompdf\Dompdf;
+use Dompdf\Options;
 use Illuminate\Http\Request;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -98,6 +100,45 @@ class ReceiptController extends Controller
         $invoice = $receipt->invoice;
 
         return view('receipts.edit', compact('receipt', 'invoice'));
+    }
+
+    public function pdf(string $key)
+    {
+        $this->ensureReceiptsTable();
+
+        $receipt = $this->findByKey($key);
+        $receipt->loadMissing(['invoice.items']);
+
+        if (class_exists(Dompdf::class)) {
+            $html = view('receipts.pdf', ['receipt' => $receipt])->render();
+
+            $options = new Options();
+            $options->set('isRemoteEnabled', true);
+            $options->set('isHtml5ParserEnabled', true);
+            $options->set('defaultFont', 'DejaVu Sans');
+
+            $dompdf = new Dompdf($options);
+            $dompdf->loadHtml($html);
+            $dompdf->setPaper('A4');
+            $dompdf->render();
+
+            $payload = $dompdf->output();
+        } else {
+            $payload = view('receipts.pdf', ['receipt' => $receipt])->render();
+        }
+
+        $filename = ($receipt->number ?? 'receipt').'.pdf';
+        $dir = storage_path('app/receipts');
+        if (!is_dir($dir)) {
+            mkdir($dir, 0775, true);
+        }
+        $path = $dir.'/'.$filename;
+        file_put_contents($path, $payload);
+
+        return response()->file($path, [
+            'Content-Type'        => class_exists(Dompdf::class) ? 'application/pdf' : 'text/html',
+            'Content-Disposition' => 'inline; filename="'.$filename.'"',
+        ]);
     }
 
     public function update(Request $request, string $key)
