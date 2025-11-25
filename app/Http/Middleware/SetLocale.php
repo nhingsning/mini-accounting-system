@@ -14,7 +14,11 @@ class SetLocale
     public function handle(Request $request, Closure $next)
     {
         $supported = ['en', 'th'];
-        $locale = $request->session()->get('locale', config('app.locale'));
+        $locale = config('app.locale');
+
+        if ($request->hasSession()) {
+            $locale = $request->session()->get('locale', $locale);
+        }
 
         if (! in_array($locale, $supported, true)) {
             $locale = config('app.fallback_locale', 'en');
