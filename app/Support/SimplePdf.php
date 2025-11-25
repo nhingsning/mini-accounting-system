@@ -252,7 +252,7 @@ class SimplePdf
         return $pdf;
     }
 
-    protected static function rgb(string $hex): array
+    public static function rgb(string $hex): array
     {
         $hex = ltrim($hex, '#');
         if (strlen($hex) !== 6) {
