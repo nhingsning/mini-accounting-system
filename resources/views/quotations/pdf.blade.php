@@ -6,7 +6,7 @@
     $headerText = trim($settings['header_text'] ?? '');
     $footerText = trim($settings['footer_text'] ?? '');
     $logoPath = $settings['logo_path'] ?? null;
-    $logoDataUrl = $settings['logo_data_url'] ?? null;
+    $logoDataUrl = $settings['logo_data_url'] ?? ($settings['logo'] ?? null);
 
     if (! $logoDataUrl && $logoPath && Storage::disk('public')->exists($logoPath)) {
         $mime = Storage::disk('public')->mimeType($logoPath) ?: 'image/png';
@@ -33,6 +33,13 @@
     $cur = config('currency.symbol','฿');
     $issue = optional($quotation->issue_date ?? $quotation->created_at)->format('d/m/Y');
     $expiry = optional($quotation->expiry_date ?? $quotation->valid_until)->format('d/m/Y');
+    $preparedOn = optional($quotation->created_at)->format('d/m/Y');
+    $preparedBy = $quotation->salesperson
+        ?? ($quotation->contact_name ?? ($quotation->created_by ?? null))
+        ?? '—';
+    $approvedBy = $quotation->approved_by ?? data_get($quotation, 'approver_name') ?? '—';
+    $approvedOn = optional($quotation->approved_at ?? $quotation->updated_at)->format('d/m/Y');
+    $remark = trim($quotation->notes ?? '') ?: '—';
 
     $subtotal = 0.0;
     foreach ($items as $it) {
@@ -90,6 +97,9 @@
     .totals .row { display:flex; justify-content:space-between; padding:9px 12px; }
     .totals .row:nth-child(odd){ background:#f8fbff; }
     .totals .row.total { background:{{ $primary }}; color:#fff; font-weight:800; font-size:13px; }
+    .foot-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:12px; }
+    .muted-card { background:#f8fbff; border:1px solid #d5deeb; border-radius:10px; padding:12px 14px; font-size:12px; color:#334155; min-height:70px; }
+    .meta-table-small td { padding:4px 0; font-size:12px; }
     footer { position:fixed; bottom:{{ max($marginBottom / 2, 10) }}mm; left:{{ $marginLeft }}mm; right:{{ $marginRight }}mm; color:#6b7280; font-size:11px; border-top:1px solid #e5e7eb; padding-top:8px; }
     .signature { margin-top:20px; display:flex; justify-content:space-between; gap:20px; font-size:12px; }
     .sig-box { flex:1; border-top:1px dashed #cbd5e1; padding-top:10px; text-align:center; color:#334155; }
@@ -215,6 +225,22 @@
       <div class="row"><span>{{ __('ui.pdf.labels.subtotal') }}</span><span>{{ $cur }}{{ number_format($subtotal,2) }}</span></div>
       <div class="row"><span>{{ __('ui.pdf.labels.tax') }} ({{ number_format($taxRate,2) }}%)</span><span>{{ $cur }}{{ number_format($tax,2) }}</span></div>
       <div class="row total"><span>{{ __('ui.pdf.labels.total') }}</span><span>{{ $cur }}{{ number_format($total,2) }}</span></div>
+    </div>
+  </div>
+
+  <div class="foot-grid">
+    <div class="muted-card">
+      <div class="section-title" style="margin-top:0;">{{ __('ui.pdf.labels.remark') }}</div>
+      <div style="white-space:pre-wrap;">{{ $remark }}</div>
+    </div>
+    <div class="panel" style="background:#fff;">
+      <div class="section-title" style="margin-top:0;">{{ __('ui.pdf.labels.signoff') }}</div>
+      <table class="meta-table meta-table-small">
+        <tr><td class="meta-label">{{ __('ui.pdf.labels.prepared_by') }}</td><td class="meta-value">{{ $preparedBy }}</td></tr>
+        <tr><td class="meta-label">{{ __('ui.pdf.labels.created_date') }}</td><td class="meta-value">{{ $preparedOn ?: '—' }}</td></tr>
+        <tr><td class="meta-label">{{ __('ui.pdf.labels.approved_by') }}</td><td class="meta-value">{{ $approvedBy }}</td></tr>
+        <tr><td class="meta-label">{{ __('ui.pdf.labels.approved_date') }}</td><td class="meta-value">{{ $approvedOn ?: '—' }}</td></tr>
+      </table>
     </div>
   </div>
 

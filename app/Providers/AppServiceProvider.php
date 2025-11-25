@@ -38,6 +38,9 @@ class AppServiceProvider extends ServiceProvider
 
         if (! empty($settings['logo_path'])) {
             $settings['logo_data_url'] = $this->logoDataUrl($settings['logo_path']);
+        } elseif (! empty($settings['logo_data_url'])) {
+            // Keep previously embedded logo data even if the file path is missing
+            $settings['logo_data_url'] = $settings['logo_data_url'];
         }
 
         $layoutRaw = $settings['pdf_layout'] ?? null;

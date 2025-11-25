@@ -51,6 +51,11 @@ class SettingsController extends Controller
         if ($request->hasFile('logo')) {
             $path = $request->file('logo')->store('settings', 'public');
             $data['logo_path'] = $path;
+
+            // Persist an embedded copy so PDFs can render the logo even without a public symlink
+            $logoBinary = Storage::disk('public')->get($path);
+            $mime = Storage::disk('public')->mimeType($path) ?: 'image/png';
+            $data['logo_data_url'] = 'data:'.$mime.';base64,'.base64_encode($logoBinary);
         }
 
         foreach ($data as $key => $value) {

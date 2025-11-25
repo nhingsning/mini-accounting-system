@@ -305,6 +305,12 @@ return [
             'total' => 'Total',
             'total_received' => 'Total received',
             'no_items' => 'No items',
+            'remark' => 'Remark',
+            'signoff' => 'Sign-off',
+            'prepared_by' => 'Prepared by',
+            'created_date' => 'Created date',
+            'approved_by' => 'Approved by',
+            'approved_date' => 'Approved date',
         ],
     ],
 ];
