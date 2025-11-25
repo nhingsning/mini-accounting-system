@@ -2,6 +2,7 @@
   $isEdit = isset($note);
   $action = $isEdit ? route('credit-notes.update', $note->number ?? $note->id) : route('credit-notes.store');
   $invoice = $invoice ?? ($note->invoice ?? null);
+  $invoiceOptions = $invoiceOptions ?? collect();
   $items = old('items');
   if ($items === null) {
     if ($isEdit) {
@@ -33,11 +34,35 @@
   $status = old('status', $isEdit ? $note->status : 'draft');
   $type = old('type', $isEdit ? $note->type : 'credit');
   $statusOptions = $statusOptions ?? [
-    'draft' => 'Draft',
-    'issued' => 'Issued',
-    'cancelled' => 'Cancelled / Void',
+    'draft' => __('ui.status.draft'),
+    'issued' => __('ui.status.issued'),
+    'cancelled' => __('ui.status.cancelled'),
   ];
-  $docTitle = $type === 'debit' ? 'Debit Note' : 'Credit Note';
+  $docTitle = $type === 'debit' ? __('ui.credit_notes.filters.debit') : __('ui.credit_notes.filters.credit');
+  $invoicePayload = $invoiceOptions->map(function($inv){
+    return [
+      'id' => $inv->id,
+      'number' => $inv->number,
+      'issue_date' => optional($inv->issue_date)->toDateString(),
+      'customer_name' => $inv->customer_name,
+      'customer_address' => $inv->customer_address,
+      'customer_tax_id' => $inv->customer_tax_id,
+      'customer_branch_type' => $inv->customer_branch_type,
+      'customer_branch_code' => $inv->customer_branch_code,
+      'subtotal' => $inv->subtotal,
+      'tax' => $inv->tax,
+      'total' => $inv->total,
+      'currency' => $inv->currency ?? 'THB',
+      'items' => $inv->items?->map(function($it){
+        return [
+          'description' => $it->description,
+          'qty' => $it->qty ?? $it->quantity ?? 1,
+          'unit_price' => $it->unit_price ?? $it->price ?? 0,
+          'unit' => $it->unit,
+        ];
+      })->values()->all(),
+    ];
+  })->values();
 @endphp
 
 <style>
@@ -87,7 +112,7 @@ body{background:var(--bg);color:var(--ink)}
     <div class="fa-topbar">
       <div>
         <div class="fa-subtitle">{{ $docTitle }}</div>
-        <div class="fa-title">{{ $isEdit ? 'แก้ไขเอกสาร' : 'สร้างเอกสารใหม่' }}</div>
+        <div class="fa-title">{{ $isEdit ? __('ui.credit_notes.form.title_edit') : __('ui.credit_notes.form.title_new') }}</div>
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
           <span class="fa-number">{{ old('number', $isEdit ? ($note->number ?? 'Draft') : 'Draft') }}</span>
           <span class="fa-badge">{{ $statusOptions[$status] ?? ucfirst($status) }}</span>
@@ -97,14 +122,14 @@ body{background:var(--bg);color:var(--ink)}
         </div>
       </div>
       <div class="fa-actions">
-        <a href="{{ route('credit-notes.index') }}" class="fa-btn">ย้อนกลับ</a>
-        <button type="submit" class="fa-btn save">{{ $isEdit ? 'บันทึกการแก้ไข' : 'บันทึกเอกสาร' }}</button>
+        <a href="{{ route('credit-notes.index') }}" class="fa-btn">{{ __('ui.credit_notes.form.back') }}</a>
+        <button type="submit" class="fa-btn save">{{ $isEdit ? __('ui.credit_notes.form.save_changes') : __('ui.credit_notes.form.save') }}</button>
       </div>
     </div>
 
     @if ($errors->any())
       <div class="alert alert-danger">
-        <strong>กรอกไม่ครบหรือไม่ถูกต้อง:</strong>
+        <strong>{{ __('ui.credit_notes.form.errors_heading') }}</strong>
         <ul style="margin:6px 0 0 18px">
           @foreach ($errors->all() as $err)
             <li>{{ $err }}</li>
@@ -115,15 +140,15 @@ body{background:var(--bg);color:var(--ink)}
 
     <div class="fa-grid">
       <div class="fa-card fa-section">
-        <div class="section-title">ข้อมูลเอกสาร</div>
+        <div class="section-title">{{ __('ui.credit_notes.form.document_info') }}</div>
         <div class="fa-two">
           <div>
-            <label class="fa-label">เลขเอกสาร</label>
-            <input class="fa-input" name="number" value="{{ old('number', $isEdit ? $note->number : '') }}" placeholder="ปล่อยว่างให้ออกเลขอัตโนมัติ">
-            <div class="helper">รองรับการแก้เลขเอง (ไม่ซ้ำ)</div>
+            <label class="fa-label">{{ __('ui.credit_notes.form.number') }}</label>
+            <input class="fa-input" name="number" value="{{ old('number', $isEdit ? $note->number : '') }}" placeholder="{{ __('ui.credit_notes.form.number_placeholder') }}">
+            <div class="helper">{{ __('ui.credit_notes.form.number_helper') }}</div>
           </div>
           <div>
-            <label class="fa-label">สถานะ</label>
+            <label class="fa-label">{{ __('ui.credit_notes.form.status') }}</label>
             <select name="status" class="fa-select">
               @foreach($statusOptions as $value => $label)
                 <option value="{{ $value }}" {{ $status===$value ? 'selected' : '' }}>{{ $label }}</option>
@@ -133,113 +158,195 @@ body{background:var(--bg);color:var(--ink)}
         </div>
         <div class="fa-two" style="margin-top:10px">
           <div>
-            <label class="fa-label">ประเภท</label>
+            <label class="fa-label">{{ __('ui.credit_notes.form.type') }}</label>
             <select name="type" class="fa-select">
-              <option value="credit" {{ $type==='credit' ? 'selected' : '' }}>Credit Note (ลดหนี้/คืนของ)</option>
-              <option value="debit" {{ $type==='debit' ? 'selected' : '' }}>Debit Note (เพิ่มหนี้/ปรับยอด)</option>
+              <option value="credit" {{ $type==='credit' ? 'selected' : '' }}>{{ __('ui.credit_notes.filters.credit') }}</option>
+              <option value="debit" {{ $type==='debit' ? 'selected' : '' }}>{{ __('ui.credit_notes.filters.debit') }}</option>
             </select>
           </div>
           <div>
-            <label class="fa-label">วันที่</label>
+            <label class="fa-label">{{ __('ui.credit_notes.form.issue_date') }}</label>
             <input type="date" class="fa-input" name="issue_date" value="{{ old('issue_date', $isEdit ? optional($note->issue_date)->toDateString() : now()->toDateString()) }}">
           </div>
         </div>
         <div class="fa-two" style="margin-top:10px">
           <div>
-            <label class="fa-label">อ้างอิง Invoice</label>
-            <input class="fa-input" name="invoice_number" value="{{ old('invoice_number', $isEdit ? $note->invoice_number : ($invoice->number ?? '')) }}" placeholder="INV...">
-            <input type="hidden" name="invoice_id" value="{{ old('invoice_id', $isEdit ? $note->invoice_id : ($invoice->id ?? '')) }}">
-            <div class="helper">เชื่อมโยงกับใบแจ้งหนี้ที่ต้องการปรับยอด</div>
+            <label class="fa-label">{{ __('ui.credit_notes.form.invoice_ref') }}</label>
+            <select class="fa-select" name="invoice_id" id="invoice-select">
+              <option value="">{{ __('ui.credit_notes.form.invoice_dropdown') }}</option>
+              @foreach($invoiceOptions as $inv)
+                <option value="{{ $inv->id }}" {{ (string)old('invoice_id', $isEdit ? $note->invoice_id : ($invoice->id ?? '')) === (string)$inv->id ? 'selected' : '' }}>
+                  {{ $inv->number }} — {{ $inv->customer_name }}
+                </option>
+              @endforeach
+            </select>
+            <input class="fa-input" style="margin-top:8px" id="invoice-number" name="invoice_number" value="{{ old('invoice_number', $isEdit ? $note->invoice_number : ($invoice->number ?? '')) }}" placeholder="INV...">
+            <div class="helper">{{ __('ui.credit_notes.form.invoice_dropdown') }}</div>
           </div>
           <div>
-            <label class="fa-label">เหตุผล / หมายเหตุ</label>
-            <input class="fa-input" name="reason" value="{{ old('reason', $isEdit ? $note->reason : '') }}" placeholder="คืนสินค้า, ส่วนลด, ปรับยอด ฯลฯ">
+            <label class="fa-label">{{ __('ui.credit_notes.form.reason') }}</label>
+            <input class="fa-input" name="reason" value="{{ old('reason', $isEdit ? $note->reason : '') }}" placeholder="{{ __('ui.credit_notes.form.reason') }}">
           </div>
         </div>
 
-        <div class="section-title" style="margin-top:18px">ข้อมูลลูกค้า</div>
+        <div class="section-title" style="margin-top:18px">{{ __('ui.credit_notes.form.customer_section') }}</div>
         <div class="fa-two">
           <div>
-            <label class="fa-label">ชื่อลูกค้า</label>
+            <label class="fa-label">{{ __('ui.credit_notes.form.customer_name') }}</label>
             <input class="fa-input" name="customer_name" value="{{ old('customer_name', $isEdit ? $note->customer_name : ($invoice->customer_name ?? '')) }}">
           </div>
           <div>
-            <label class="fa-label">Tax ID</label>
+            <label class="fa-label">{{ __('ui.credit_notes.form.customer_tax_id') }}</label>
             <input class="fa-input" name="customer_tax_id" value="{{ old('customer_tax_id', $isEdit ? $note->customer_tax_id : ($invoice->customer_tax_id ?? '')) }}">
           </div>
         </div>
         <div class="fa-two" style="margin-top:10px">
           @php $bt = old('customer_branch_type', $isEdit ? $note->customer_branch_type : ($invoice->customer_branch_type ?? '')); @endphp
           <div>
-            <label class="fa-label">Branch Type</label>
+            <label class="fa-label">{{ __('ui.credit_notes.form.customer_branch_type') }}</label>
             <select name="customer_branch_type" class="fa-select">
               <option value="" {{ $bt===''?'selected':'' }}>—</option>
-              <option value="head" {{ $bt==='head'?'selected':'' }}>Head Office</option>
-              <option value="branch" {{ $bt==='branch'?'selected':'' }}>Branch</option>
+              <option value="head" {{ $bt==='head'?'selected':'' }}>{{ __('ui.credit_notes.form.branch_head') }}</option>
+              <option value="branch" {{ $bt==='branch'?'selected':'' }}>{{ __('ui.credit_notes.form.branch_branch') }}</option>
             </select>
           </div>
           <div>
-            <label class="fa-label">Branch Code</label>
+            <label class="fa-label">{{ __('ui.credit_notes.form.customer_branch_code') }}</label>
             <input class="fa-input" name="customer_branch_code" value="{{ old('customer_branch_code', $isEdit ? $note->customer_branch_code : ($invoice->customer_branch_code ?? '')) }}">
           </div>
           <div class="span-2">
-            <label class="fa-label">ที่อยู่ลูกค้า</label>
-            <textarea class="fa-textarea" name="customer_address" rows="3" placeholder="ที่อยู่ อีเมล หรือข้อมูลติดต่อ">{{ old('customer_address', $isEdit ? $note->customer_address : ($invoice->customer_address ?? '')) }}</textarea>
+            <label class="fa-label">{{ __('ui.credit_notes.form.customer_address') }}</label>
+            <textarea class="fa-textarea" name="customer_address" rows="3" placeholder="{{ __('ui.credit_notes.form.customer_address') }}">{{ old('customer_address', $isEdit ? $note->customer_address : ($invoice->customer_address ?? '')) }}</textarea>
           </div>
         </div>
 
-        <div class="section-title" style="margin-top:18px">รายการสินค้า/บริการ</div>
-        <div class="helper">ปรับปริมาณ/ราคาเป็นค่าลบสำหรับใบลดหนี้ หรือบวกสำหรับใบเพิ่มหนี้</div>
+        <div class="section-title" style="margin-top:18px">{{ __('ui.credit_notes.form.items_title') }}</div>
+        <div class="helper">{{ __('ui.credit_notes.form.items_helper') }}</div>
         <table class="fa-table" style="margin-top:10px">
           <thead>
             <tr>
-              <th>รายการ</th>
-              <th class="qty">Qty</th>
-              <th class="price">ราคา/หน่วย</th>
-              <th class="qty">หน่วย</th>
-              <th class="line">รวม</th>
+              <th>{{ __('ui.credit_notes.form.headers.description') }}</th>
+              <th class="qty">{{ __('ui.credit_notes.form.headers.qty') }}</th>
+              <th class="price">{{ __('ui.credit_notes.form.headers.price') }}</th>
+              <th class="qty">{{ __('ui.credit_notes.form.headers.qty') }}</th>
+              <th class="line">{{ __('ui.credit_notes.form.headers.line_total') }}</th>
             </tr>
           </thead>
           <tbody id="cn-items">
             @foreach($items as $idx => $it)
               <tr>
                 <td><input name="items[{{ $idx }}][description]" value="{{ $it['description'] ?? '' }}" placeholder="รายละเอียด"></td>
-                <td><input name="items[{{ $idx }}][qty]" type="number" step="0.01" value="{{ $it['qty'] ?? 1 }}"></td>
-                <td><input name="items[{{ $idx }}][unit_price]" type="number" step="0.01" value="{{ $it['unit_price'] ?? 0 }}"></td>
+                <td><input class="cn-qty" name="items[{{ $idx }}][qty]" type="number" step="0.01" value="{{ $it['qty'] ?? 1 }}"></td>
+                <td><input class="cn-price" name="items[{{ $idx }}][unit_price]" type="number" step="0.01" value="{{ $it['unit_price'] ?? 0 }}"></td>
                 <td><input name="items[{{ $idx }}][unit]" value="{{ $it['unit'] ?? '' }}"></td>
-                <td><input name="items[{{ $idx }}][line_total]" type="number" step="0.01" value="{{ $it['line_total'] ?? 0 }}"></td>
+                <td><input class="cn-line" name="items[{{ $idx }}][line_total]" type="number" step="0.01" value="{{ $it['line_total'] ?? 0 }}"></td>
               </tr>
             @endforeach
           </tbody>
         </table>
-        <button type="button" class="fa-btn" style="margin-top:10px" onclick="addCNRow()">+ เพิ่มรายการ</button>
+        <button type="button" class="fa-btn" style="margin-top:10px" onclick="addCNRow()">+ {{ __('ui.credit_notes.form.add_item') }}</button>
       </div>
 
       <div class="fa-card fa-section fa-sticky">
-        <div class="section-title">สรุปยอด</div>
-        <div class="helper">ยอดรวมจะใช้ตามรายการด้านซ้าย ถ้าปรับเองให้ใส่ตัวเลข</div>
+        <div class="section-title">{{ __('ui.credit_notes.form.summary.title') }}</div>
+        <div class="helper">{{ __('ui.credit_notes.form.totals_helper') }}</div>
         <div class="fa-totals">
-          <div class="row"><span>Subtotal</span><input class="fa-input" type="number" step="0.01" name="subtotal" value="{{ old('subtotal', $isEdit ? $note->subtotal : ($invoice->subtotal ?? 0)) }}"></div>
-          <div class="row"><span>Tax</span><input class="fa-input" type="number" step="0.01" name="tax" value="{{ old('tax', $isEdit ? $note->tax : 0) }}"></div>
-          <div class="row"><span><strong>Total</strong></span><input class="fa-input" type="number" step="0.01" name="total" value="{{ old('total', $isEdit ? $note->total : ($invoice->total ?? 0)) }}"></div>
-          <div class="row"><span>Currency</span><input class="fa-input" name="currency" value="{{ old('currency', $isEdit ? ($note->currency ?? 'THB') : ($invoice->currency ?? 'THB')) }}"></div>
+          <div class="row"><span>{{ __('ui.credit_notes.form.summary.subtotal') }}</span><input class="fa-input" id="subtotal" type="number" step="0.01" name="subtotal"
+            value="{{ old('subtotal', $isEdit ? $note->subtotal : ($invoice->subtotal ?? 0)) }}" readonly></div>
+          <div class="row"><span>{{ __('ui.credit_notes.form.summary.tax') }}</span><input class="fa-input" id="tax" type="number" step="0.01" name="tax"
+            value="{{ old('tax', $isEdit ? $note->tax : 0) }}"></div>
+          <div class="row"><span><strong>{{ __('ui.credit_notes.form.summary.total') }}</strong></span><input class="fa-input" id="total" type="number" step="0.01"
+            name="total" value="{{ old('total', $isEdit ? $note->total : ($invoice->total ?? 0)) }}" readonly></div>
+          <div class="row"><span>{{ __('ui.credit_notes.form.currency') ?? 'Currency' }}</span><input class="fa-input" name="currency"
+            value="{{ old('currency', $isEdit ? ($note->currency ?? 'THB') : ($invoice->currency ?? 'THB')) }}"></div>
         </div>
       </div>
     </div>
   </div>
 </form>
 <script>
-  function addCNRow(){
+  const invoices = @json($invoicePayload);
+
+  function addCNRow(rowData = {}){
     const tbody = document.getElementById('cn-items');
     const idx = tbody.children.length;
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td><input name="items[${idx}][description]" placeholder="รายละเอียด"></td>
-      <td><input name="items[${idx}][qty]" type="number" step="0.01" value="1"></td>
-      <td><input name="items[${idx}][unit_price]" type="number" step="0.01" value="0"></td>
-      <td><input name="items[${idx}][unit]" value=""></td>
-      <td><input name="items[${idx}][line_total]" type="number" step="0.01" value="0"></td>
+      <td><input name="items[${idx}][description]" placeholder="{{ __('ui.credit_notes.form.headers.description') }}" value="${rowData.description ?? ''}"></td>
+      <td><input class="cn-qty" name="items[${idx}][qty]" type="number" step="0.01" value="${rowData.qty ?? 1}"></td>
+      <td><input class="cn-price" name="items[${idx}][unit_price]" type="number" step="0.01" value="${rowData.unit_price ?? 0}"></td>
+      <td><input name="items[${idx}][unit]" value="${rowData.unit ?? ''}"></td>
+      <td><input class="cn-line" name="items[${idx}][line_total]" type="number" step="0.01" value="${rowData.line_total ?? 0}"></td>
     `;
     tbody.appendChild(tr);
+    bindRowEvents(tr);
+    recalcTotals();
   }
+
+  function bindRowEvents(tr){
+    const qty = tr.querySelector('.cn-qty');
+    const price = tr.querySelector('.cn-price');
+    const line = tr.querySelector('.cn-line');
+    [qty, price].forEach(el => el?.addEventListener('input', () => {
+      const q = parseFloat(qty.value) || 0;
+      const p = parseFloat(price.value) || 0;
+      line.value = (q * p).toFixed(2);
+      recalcTotals();
+    }));
+    line?.addEventListener('input', recalcTotals);
+  }
+
+  function recalcTotals(){
+    const lines = document.querySelectorAll('.cn-line');
+    let subtotal = 0;
+    lines.forEach(input => subtotal += parseFloat(input.value) || 0);
+    const subtotalInput = document.getElementById('subtotal');
+    const taxInput = document.getElementById('tax');
+    const totalInput = document.getElementById('total');
+    subtotalInput.value = subtotal.toFixed(2);
+    const tax = parseFloat(taxInput.value) || 0;
+    totalInput.value = (subtotal + tax).toFixed(2);
+  }
+
+  function hydrateFromInvoice(id){
+    const inv = invoices.find(i => String(i.id) === String(id));
+    if (!inv) return;
+    document.getElementById('invoice-number').value = inv.number || '';
+    document.querySelector('input[name="issue_date"]').value = inv.issue_date || document.querySelector('input[name="issue_date"]').value;
+    document.querySelector('input[name="customer_name"]').value = inv.customer_name || '';
+    document.querySelector('input[name="customer_tax_id"]').value = inv.customer_tax_id || '';
+    document.querySelector('select[name="customer_branch_type"]').value = inv.customer_branch_type || '';
+    document.querySelector('input[name="customer_branch_code"]').value = inv.customer_branch_code || '';
+    document.querySelector('textarea[name="customer_address"]').value = inv.customer_address || '';
+    document.querySelector('input[name="currency"]').value = inv.currency || 'THB';
+
+    const tbody = document.getElementById('cn-items');
+    tbody.innerHTML = '';
+    (inv.items || []).forEach(it => {
+      addCNRow({
+        description: it.description,
+        qty: it.qty,
+        unit_price: it.unit_price,
+        unit: it.unit,
+        line_total: (it.qty || 0) * (it.unit_price || 0),
+      });
+    });
+    if (!inv.items || inv.items.length === 0) {
+      addCNRow();
+    }
+    document.getElementById('tax').value = inv.tax ?? 0;
+    recalcTotals();
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('#cn-items tr').forEach(bindRowEvents);
+    document.getElementById('tax')?.addEventListener('input', recalcTotals);
+    document.getElementById('invoice-select')?.addEventListener('change', (e) => {
+      const val = e.target.value;
+      if (val) {
+        hydrateFromInvoice(val);
+      }
+    });
+    recalcTotals();
+  });
 </script>

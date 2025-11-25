@@ -16,6 +16,7 @@ class DashboardController extends Controller
         $today   = Carbon::today();
         $fromY   = $today->copy()->startOfYear();
         $dateCol = $this->pickDateColumn('invoices', ['issue_date','issued_at','created_at']);
+        $dueCol  = Schema::hasColumn('invoices', 'due_date') ? 'due_date' : $dateCol;
 
         // ===== Monthly Expenses (สรุปเป็น 12 เดือน) =====
         // NOTE: ปรับ where() ให้ตรงกับนิยาม "ค่าใช้จ่าย" ของหนิง
@@ -59,6 +60,112 @@ class DashboardController extends Controller
 
         // Closing Balance: ยอดสุทธิสะสมทั้งหมด
         $closingBalance = (float) DB::table('invoices')->sum('total');
+
+        // ===== Receivables aging =====
+        $agingBuckets = [
+            'current' => 0,
+            '1-30'    => 0,
+            '31-60'   => 0,
+            '61-90'   => 0,
+            '90+'     => 0,
+        ];
+
+        $receivables = DB::table('invoices')
+            ->select('total', $dueCol . ' as due', 'outstanding_total')
+            ->where('total', '>', 0)
+            ->get();
+
+        foreach ($receivables as $inv) {
+            $outstanding = (float) ($inv->outstanding_total ?? $inv->total ?? 0);
+            if ($outstanding <= 0) continue;
+
+            $dueDate = $inv->due ? Carbon::parse($inv->due) : null;
+            $days    = $dueDate ? $dueDate->diffInDays($today, false) : -1;
+
+            if ($days <= 0) {
+                $agingBuckets['current'] += $outstanding;
+            } elseif ($days <= 30) {
+                $agingBuckets['1-30'] += $outstanding;
+            } elseif ($days <= 60) {
+                $agingBuckets['31-60'] += $outstanding;
+            } elseif ($days <= 90) {
+                $agingBuckets['61-90'] += $outstanding;
+            } else {
+                $agingBuckets['90+'] += $outstanding;
+            }
+        }
+
+        // ===== Top customers / products =====
+        $topCustomers = DB::table('invoices')
+            ->select('customer_name', DB::raw('SUM(total) as revenue'), DB::raw('COUNT(*) as invoices'))
+            ->whereNotNull('customer_name')
+            ->where('total', '>', 0)
+            ->groupBy('customer_name')
+            ->orderByDesc('revenue')
+            ->limit(5)
+            ->get();
+
+        $topProducts = DB::table('invoice_items as ii')
+            ->join('invoices as i', 'ii.invoice_id', '=', 'i.id')
+            ->select('ii.description', DB::raw('SUM(ii.line_total) as revenue'), DB::raw('SUM(ii.qty) as units'))
+            ->where('i.total', '>', 0)
+            ->groupBy('ii.description')
+            ->orderByDesc('revenue')
+            ->limit(5)
+            ->get();
+
+        // ===== Margin by invoice (uses subtotal when available) =====
+        $marginRows = DB::table('invoices')
+            ->select('id','number','subtotal','tax','total', $dateCol . ' as d')
+            ->orderByDesc($dateCol)
+            ->limit(12)
+            ->get()
+            ->map(function ($row) {
+                $margin = (float) ($row->subtotal ?? ($row->total - ($row->tax ?? 0)));
+                $total  = (float) ($row->total ?? 0);
+                $rate   = $total > 0 ? round(($margin / $total) * 100, 1) : 0;
+                $row->margin = $margin;
+                $row->margin_rate = $rate;
+                return $row;
+            });
+
+        // ===== Status heatmap (month x status) =====
+        $yearExpr  = $this->yearExtract($driver, $dateCol);
+        $heatRows  = DB::table('invoices')
+            ->selectRaw("$yearExpr as y, $monthExpr as m, lower(coalesce(status,'pending')) as status, count(*) as c")
+            ->groupBy('y','m','status')
+            ->get();
+
+        $heatmap = [];
+        foreach (['pending','approved','paid','partial','cancelled'] as $st) {
+            $heatmap[$st] = array_fill(1, 12, 0);
+        }
+        foreach ($heatRows as $row) {
+            $s = $row->status;
+            $m = (int) $row->m;
+            if (isset($heatmap[$s]) && $m >= 1 && $m <= 12) {
+                $heatmap[$s][$m] = (int) $row->c;
+            }
+        }
+
+        // ===== Collection forecast (upcoming due dates) =====
+        $forecast = [];
+        $forecastRows = DB::table('invoices')
+            ->select('outstanding_total', $dueCol . ' as due')
+            ->where('total', '>', 0)
+            ->get();
+
+        foreach ($forecastRows as $row) {
+            $dueDate = $row->due ? Carbon::parse($row->due) : $today;
+            $week    = $dueDate->startOfWeek()->format('Y-m-d');
+            $amount  = (float) ($row->outstanding_total ?? 0);
+
+            if (!isset($forecast[$week])) {
+                $forecast[$week] = 0;
+            }
+            $forecast[$week] += $amount;
+        }
+        ksort($forecast);
 
         // ===== Recent Transactions (3 รายการล่าสุด) =====
         $dateSortCol = $dateCol ?? 'created_at';
@@ -110,6 +217,12 @@ class DashboardController extends Controller
             'periodText'  => $fromY->format('M d, Y').' – '.$today->format('M d, Y'),
             'quotations'  => $quotations,
             'history'     => $history,
+            'aging'       => $agingBuckets,
+            'topCustomers'=> $topCustomers,
+            'topProducts' => $topProducts,
+            'marginRows'  => $marginRows,
+            'heatmap'     => $heatmap,
+            'forecast'    => $forecast,
         ]);
     }
 
@@ -125,6 +238,15 @@ class DashboardController extends Controller
             'mysql'  => "DATE_FORMAT($col, '%m')",
             'pgsql'  => "TO_CHAR($col, 'MM')",
             default  => "strftime('%m', $col)", // sqlite & others
+        };
+    }
+
+    private function yearExtract(string $driver, string $col)
+    {
+        return match($driver){
+            'mysql'  => "DATE_FORMAT($col, '%Y')",
+            'pgsql'  => "TO_CHAR($col, 'YYYY')",
+            default  => "strftime('%Y', $col)",
         };
     }
 }
