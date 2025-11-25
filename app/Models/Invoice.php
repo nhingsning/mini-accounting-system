@@ -3,10 +3,12 @@
 namespace App\Models;
 
 use App\Models\Receipt;
+use App\Models\Payment;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Facades\Schema;
 
 class Invoice extends Model
 {
@@ -29,6 +31,8 @@ class Invoice extends Model
         'subtotal'         => 'float',
         'tax'              => 'float',
         'total'            => 'float',
+        'paid_total'       => 'float',
+        'outstanding_total'=> 'float',
     ];
 
     public function items(): HasMany
@@ -49,6 +53,11 @@ class Invoice extends Model
     public function receipt(): HasOne
     {
         return $this->hasOne(Receipt::class);
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
     }
 
     // ใช้เลขเอกสาร (หรือ id) สำหรับ route model binding
@@ -89,6 +98,63 @@ class Invoice extends Model
             $qq->whereNull('number')
                 ->orWhere('number', 'not like', 'PO%');
         });
+    }
+
+    public function recalculatePaymentTotals(): void
+    {
+        if (!Schema::hasTable('payments')) {
+            return;
+        }
+
+        $paid = $this->payments()
+            ->whereNotIn('status', ['void'])
+            ->sum('amount');
+
+        $total = (float) ($this->total ?? 0);
+        $outstanding = max(0, $total - (float) $paid);
+
+        $this->paid_total = $paid;
+        $this->outstanding_total = $outstanding;
+
+        if (Schema::hasColumn('invoices', 'paid_total') && Schema::hasColumn('invoices', 'outstanding_total')) {
+            $this->forceFill([
+                'paid_total'        => $paid,
+                'outstanding_total' => $outstanding,
+            ])->saveQuietly();
+            $this->refresh();
+        }
+
+        $this->updateStatusFromPayments();
+    }
+
+    public function updateStatusFromPayments(): void
+    {
+        $status = strtolower($this->status ?? 'pending');
+        if (in_array($status, ['cancelled', 'void'])) {
+            return;
+        }
+
+        $paid = (float) ($this->paid_total ?? 0);
+        $total = (float) ($this->total ?? 0);
+        $outstanding = $this->outstanding_total ?? max(0, $total - $paid);
+
+        if ($total > 0 && $paid >= $total - 0.01) {
+            $new = 'paid';
+        } elseif ($paid > 0) {
+            $new = 'partial';
+        } else {
+            $new = 'pending';
+        }
+
+        if ($status !== $new) {
+            $this->forceFill(['status' => $new])->saveQuietly();
+        }
+
+        if ($this->receipt && in_array($new, ['paid', 'partial'])) {
+            $this->receipt->forceFill([
+                'status' => $new === 'paid' ? 'issued' : 'draft',
+            ])->saveQuietly();
+        }
     }
 
 }

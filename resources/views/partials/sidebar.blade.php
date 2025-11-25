@@ -15,6 +15,9 @@
     <a class="nav-link {{ request()->routeIs('receipts.*') ? 'active' : '' }}" href="{{ route('receipts.index') }}">
       <i class="bi bi-journal-check"></i>{{ __('ui.menu.receipts') }}
     </a>
+    <a class="nav-link {{ request()->routeIs('payments.*') || request()->routeIs('bank-statements.*') ? 'active' : '' }}" href="{{ route('payments.index') }}">
+      <i class="bi bi-credit-card"></i>{{ __('ui.menu.payments') }}
+    </a>
     <a class="nav-link {{ request()->routeIs('po.*') ? 'active' : '' }}" href="{{ route('po.index') }}">
       <i class="bi bi-file-earmark-arrow-down"></i>{{ __('ui.menu.po') }}
     </a>

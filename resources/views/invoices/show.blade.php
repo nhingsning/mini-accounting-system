@@ -14,6 +14,7 @@
   $statusLabels = [
     'pending'   => 'Pending / Waiting for Approval',
     'approved'  => 'Approved',
+    'partial'   => 'Partially Paid',
     'paid'      => 'Paid',
     'cancelled' => 'Cancelled / Void',
   ];
@@ -23,6 +24,8 @@
   $sub = (float) ($invoice->subtotal ?? $calcSub);
   $tax = (float) ($invoice->tax ?? ($sub * ($taxRate/100)));
   $tot = (float) ($invoice->total ?? ($sub + $tax));
+  $paid = (float) ($invoice->paid_total ?? ($invoice->payments?->where('status','!=','void')->sum('amount') ?? 0));
+  $outstanding = max(0, $tot - $paid);
   $quoteRef = $invoice->quotation->number ?? $invoice->quotation_number ?? ($invoice->quotation?->id ? 'QT#'.$invoice->quotation->id : null);
   $issue = optional($invoice->issue_date ?? $invoice->created_at)->format('Y-m-d');
   $due = optional($invoice->due_date)->format('Y-m-d');
@@ -69,6 +72,20 @@ body{background:var(--bg)}
 .fa-totals .row strong{font-weight:900;color:var(--ink)}
 .fa-hint{color:var(--muted);font-size:13px;margin-top:6px}
 .hr-dash{border-top:1px dashed var(--line);margin:8px 0 0}
+.fa-payments{margin-top:12px}
+.fa-payments table{width:100%;border-collapse:separate;border-spacing:0 6px}
+.fa-payments th{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;text-align:left;padding:4px 8px}
+.fa-payments td{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:14px}
+.fa-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:700}
+.chip-paid{background:#e7f8ef;color:#1f8a4b}
+.chip-pending{background:#fff3d9;color:#b37600}
+.chip-cleared{background:#e7f0ff;color:#2f54d8}
+.chip-reconciled{background:#eef7ff;color:#0b5394}
+.chip-void{background:#fde2e2;color:#b42318}
+.fa-form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-top:10px}
+.fa-form-grid label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
+.fa-form-grid input,.fa-form-grid select, .fa-form-grid textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:9px 10px;font-size:14px}
+.fa-panel-title{font-weight:800;color:var(--ink);font-size:15px;margin-bottom:6px}
 </style>
 
 <div class="fa-wrap">
@@ -219,8 +236,83 @@ body{background:var(--bg)}
         <div class="row"><span>Tax ({{ number_format($taxRate, 2) }}%)</span><strong>{{ $cur }}{{ number_format($tax,2) }}</strong></div>
         <div class="row hr-dash"></div>
         <div class="row"><span>Total</span><strong>{{ $cur }}{{ number_format($tot,2) }}</strong></div>
+        <div class="row"><span>Paid</span><strong style="color:#1f8a4b">{{ $cur }}{{ number_format($paid,2) }}</strong></div>
+        <div class="row"><span>Outstanding</span><strong style="color:#b42318">{{ $cur }}{{ number_format($outstanding,2) }}</strong></div>
       </div>
       <div class="fa-hint">Last updated: {{ optional($invoice->updated_at)->format('M d, Y H:i') }}</div>
+
+      <div class="fa-card fa-section fa-payments">
+        <div class="fa-panel-title">Payments & Reconciliation</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Method</th>
+              <th>Reference</th>
+              <th style="text-align:right">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            @forelse($invoice->payments ?? [] as $pay)
+              <tr>
+                <td>{{ optional($pay->paid_at)->format('Y-m-d') ?? '—' }}</td>
+                <td>{{ strtoupper(str_replace('_',' ', $pay->method ?? '—')) }}</td>
+                <td>
+                  {{ $pay->reference ?: '—' }}
+                  @if($pay->slip_path)
+                    <div><a href="{{ Storage::disk('public')->url($pay->slip_path) }}" target="_blank">Slip</a></div>
+                  @endif
+                  @if($pay->status)
+                    <div class="fa-chip chip-{{ str_replace(' ','-', strtolower($pay->status)) }}">{{ ucfirst($pay->status) }}</div>
+                  @endif
+                </td>
+                <td style="text-align:right">{{ $cur }}{{ number_format($pay->amount,2) }}</td>
+              </tr>
+            @empty
+              <tr><td colspan="4" style="text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:12px;padding:12px">No payments yet</td></tr>
+            @endforelse
+          </tbody>
+        </table>
+
+        <form class="fa-form" action="{{ route('payments.store') }}" method="POST" enctype="multipart/form-data" style="margin-top:12px">
+          @csrf
+          <input type="hidden" name="invoice_id" value="{{ $invoice->id }}">
+          <div class="fa-form-grid">
+            <div>
+              <label>Amount</label>
+              <input type="number" step="0.01" name="amount" value="{{ number_format($outstanding,2,'.','') }}" required>
+            </div>
+            <div>
+              <label>Method</label>
+              <select name="method" required>
+                <option value="bank_transfer">Bank Transfer</option>
+                <option value="cash">Cash</option>
+                <option value="card">Card</option>
+                <option value="e_wallet">E-Wallet</option>
+              </select>
+            </div>
+            <div>
+              <label>Paid at</label>
+              <input type="date" name="paid_at" value="{{ now()->toDateString() }}">
+            </div>
+            <div>
+              <label>Reference</label>
+              <input type="text" name="reference" placeholder="Transaction ID / notes">
+            </div>
+            <div>
+              <label>Slip</label>
+              <input type="file" name="slip" accept="image/*,application/pdf">
+            </div>
+            <div>
+              <label>Notes</label>
+              <textarea name="note" rows="2" placeholder="Payment details"></textarea>
+            </div>
+          </div>
+          <div style="margin-top:10px; display:flex; justify-content:flex-end; gap:10px">
+            <button type="submit" class="fa-btn primary">Record payment</button>
+          </div>
+        </form>
+      </div>
     </div>
   </div>
 </div>

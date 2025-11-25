@@ -99,15 +99,24 @@ class InvoiceController extends Controller
     {
         $invoice = $this->findByKey($key);
         $receiptsAvailable = Schema::hasTable('receipts');
+        $paymentsAvailable = Schema::hasTable('payments');
 
         $relations = ['items' => fn ($q) => $q->orderBy('id'), 'quotation'];
         if ($receiptsAvailable) {
             $relations[] = 'receipt';
         }
+        if ($paymentsAvailable) {
+            $relations[] = 'payments';
+        }
 
         $invoice->loadMissing($relations);
         if (!$receiptsAvailable) {
             $invoice->setRelation('receipt', null);
+        }
+        if (!$paymentsAvailable) {
+            $invoice->setRelation('payments', collect());
+        } else {
+            $invoice->recalculatePaymentTotals();
         }
 
         return view('invoices.show', compact('invoice', 'receiptsAvailable'));
@@ -214,6 +223,7 @@ class InvoiceController extends Controller
         return [
             'pending'   => 'Pending / Waiting for Approval',
             'approved'  => 'Approved',
+            'partial'   => 'Partially Paid',
             'paid'      => 'Paid',
             'cancelled' => 'Cancelled / Void',
         ];
