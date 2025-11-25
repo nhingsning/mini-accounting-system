@@ -59,6 +59,28 @@
             </div>
           </div>
 
+          {{-- Aging & Heatmap --}}
+          <div class="row g-3 mt-1">
+            <div class="col-lg-6">
+              <div class="panel p-3">
+                <div class="panel-header d-flex justify-content-between align-items-center mb-2">
+                  <strong>Receivables Aging</strong>
+                  <span class="mini text-muted">Outstanding buckets</span>
+                </div>
+                <canvas id="agingChart" height="140"></canvas>
+              </div>
+            </div>
+            <div class="col-lg-6">
+              <div class="panel p-3">
+                <div class="panel-header d-flex justify-content-between align-items-center mb-2">
+                  <strong>Status Heatmap</strong>
+                  <span class="mini text-muted">Pending / Approved / Paid</span>
+                </div>
+                <canvas id="heatmapChart" height="140"></canvas>
+              </div>
+            </div>
+          </div>
+
           {{-- Transaction History --}}
           <div class="panel mt-3">
             <div class="panel-header">
@@ -190,6 +212,71 @@
             <div class="mini">As of {{ now()->format('M d, Y') }}</div>
           </div>
 
+          <div class="panel mb-3 p-3">
+            <div class="panel-header d-flex justify-content-between align-items-center mb-2">
+              <strong>Top Customers</strong>
+              <span class="mini text-muted">By billed revenue</span>
+            </div>
+            <ul class="list-unstyled mb-0">
+              @forelse(($topCustomers ?? []) as $cust)
+                <li class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                  <div>
+                    <div class="fw-semibold">{{ $cust->customer_name }}</div>
+                    <div class="mini text-muted">{{ $cust->invoices }} invoices</div>
+                  </div>
+                  <div class="text-end fw-semibold">{{ number_format((float)$cust->revenue,2) }}</div>
+                </li>
+              @empty
+                <li class="text-muted">No customers yet.</li>
+              @endforelse
+            </ul>
+          </div>
+
+          <div class="panel mb-3 p-3">
+            <div class="panel-header d-flex justify-content-between align-items-center mb-2">
+              <strong>Top Products</strong>
+              <span class="mini text-muted">By line revenue</span>
+            </div>
+            <ul class="list-unstyled mb-0">
+              @forelse(($topProducts ?? []) as $prod)
+                <li class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                  <div>
+                    <div class="fw-semibold">{{ $prod->description }}</div>
+                    <div class="mini text-muted">{{ (int) $prod->units }} units</div>
+                  </div>
+                  <div class="text-end fw-semibold">{{ number_format((float)$prod->revenue,2) }}</div>
+                </li>
+              @empty
+                <li class="text-muted">No products yet.</li>
+              @endforelse
+            </ul>
+          </div>
+
+          <div class="panel mb-3 p-3">
+            <div class="panel-header d-flex justify-content-between align-items-center mb-2">
+              <strong>Margin by Invoice</strong>
+              <span class="mini text-muted">Last 12 invoices</span>
+            </div>
+            <canvas id="marginChart" height="160"></canvas>
+          </div>
+
+          <div class="panel mb-3 p-3">
+            <div class="panel-header d-flex justify-content-between align-items-center mb-2">
+              <strong>Collection Forecast</strong>
+              <span class="mini text-muted">Grouped by due week</span>
+            </div>
+            <ul class="list-unstyled mb-0">
+              @forelse(($forecast ?? []) as $week => $amount)
+                <li class="d-flex justify-content-between py-1 border-bottom">
+                  <span class="mini">Week of {{ \Carbon\Carbon::parse($week)->format('M d') }}</span>
+                  <span class="fw-semibold">{{ number_format((float)$amount,2) }}</span>
+                </li>
+              @empty
+                <li class="text-muted">No upcoming receivables.</li>
+              @endforelse
+            </ul>
+          </div>
+
           <div class="panel p-3">
             <div class="mini mb-2">Expenses Breakdown</div>
             <div class="chart-container">
@@ -235,6 +322,15 @@
       $monthsSafe    = $chartMonths ?? ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
       $barDataSafe   = $barData ?? array_fill(0, 12, 0);
       $breakdownSafe = $breakdown ?? [];
+      $agingSafe     = $aging ?? [];
+      $heatmapSafe   = $heatmap ?? [];
+      $marginSafe    = collect($marginRows ?? [])->map(function($r){
+          return [
+            'label' => $r->number ?? ('INV-'.$r->id),
+            'margin'=> $r->margin ?? 0,
+            'rate'  => $r->margin_rate ?? 0,
+          ];
+      })->values();
     @endphp
 
     @push('scripts')
@@ -244,6 +340,9 @@
         const months    = @json($monthsSafe);
         const barData   = @json($barDataSafe);
         const breakdown = @json($breakdownSafe);
+        const aging     = @json($agingSafe);
+        const heatmap   = @json($heatmapSafe);
+        const margins   = @json($marginSafe);
 
         // Bar chart
         new Chart(document.getElementById('barChart'),{
@@ -269,6 +368,68 @@
             borderWidth:0
           }]},
           options:{ cutout:'65%', plugins:{ legend:{ display:false } } }
+        });
+
+        // Aging chart
+        new Chart(document.getElementById('agingChart'), {
+          type:'bar',
+          data:{
+            labels: Object.keys(aging),
+            datasets:[{
+              label:'Outstanding',
+              data:Object.values(aging),
+              backgroundColor:'#2B4A72',
+              borderRadius:6,
+              maxBarThickness:32
+            }]
+          },
+          options:{
+            plugins:{legend:{display:false}},
+            scales:{y:{ticks:{callback:v=>'$'+Number(v).toLocaleString()}}}
+          }
+        });
+
+        // Status heatmap (stacked bar by month)
+        const statusKeys = Object.keys(heatmap);
+        const heatDatasets = statusKeys.map((k, idx)=>({
+          label:k.charAt(0).toUpperCase()+k.slice(1),
+          data: months.map((_, i)=> (heatmap[k] ?? {})[i+1] ?? 0),
+          backgroundColor:['#6f9ad0','#8cc0ff','#7fd1ae','#f6c343','#d65a5a'][idx % 5],
+          stack:'status'
+        }));
+
+        new Chart(document.getElementById('heatmapChart'), {
+          type:'bar',
+          data:{ labels: months, datasets: heatDatasets },
+          options:{
+            plugins:{legend:{position:'bottom'}},
+            responsive:true,
+            scales:{x:{stacked:true, grid:{display:false}}, y:{stacked:true, ticks:{precision:0}}}
+          }
+        });
+
+        // Margin chart
+        new Chart(document.getElementById('marginChart'), {
+          type:'bar',
+          data:{
+            labels: margins.map(m=>m.label),
+            datasets:[{
+              label:'Margin',
+              data: margins.map(m=>m.margin),
+              backgroundColor:'#7fd1ae',
+              borderRadius:6
+            }]
+          },
+          options:{
+            indexAxis:'y',
+            plugins:{
+              legend:{display:false},
+              tooltip:{callbacks:{
+                label:(ctx)=>`$${ctx.raw.toLocaleString()} (${margins[ctx.dataIndex].rate}% margin)`
+              }}
+            },
+            scales:{x:{ticks:{callback:v=>'$'+Number(v).toLocaleString()}}}
+          }
         });
       </script>
     @endpush
