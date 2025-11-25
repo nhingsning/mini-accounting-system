@@ -5,6 +5,7 @@ namespace App\Support;
 use App\Models\Invoice;
 use App\Models\Quotation;
 use App\Models\Setting;
+use Illuminate\Support\Facades\Storage;
 
 class SimplePdf
 {
@@ -14,6 +15,12 @@ class SimplePdf
     public static function quotation(Quotation $q): string
     {
         $theme = self::theme();
+
+        $preparedBy = $q->salesperson
+            ?? ($q->contact_name ?? ($q->created_by ?? null));
+        $approvedBy = $q->approved_by ?? data_get($q, 'approver_name');
+        $preparedOn = optional($q->created_at)->format('Y-m-d');
+        $approvedOn = optional($q->approved_at ?? $q->updated_at)->format('Y-m-d');
 
         $lines = self::headerLines(
             title: 'Quotation',
@@ -40,7 +47,13 @@ class SimplePdf
             items: $items,
             summary: $summary,
             notes: $q->notes,
-            layout: $theme['layout']
+            layout: $theme['layout'],
+            company: $theme['company'],
+            preparedBy: $preparedBy,
+            preparedOn: $preparedOn,
+            approvedBy: $approvedBy,
+            approvedOn: $approvedOn,
+            logoDataUrl: $theme['logo']
         );
 
         return self::assemble($body);
@@ -49,6 +62,12 @@ class SimplePdf
     public static function invoice(Invoice $invoice): string
     {
         $theme = self::theme();
+
+        $preparedBy = $invoice->salesperson
+            ?? ($invoice->contact_name ?? ($invoice->created_by ?? null));
+        $approvedBy = $invoice->approved_by ?? data_get($invoice, 'approver_name');
+        $preparedOn = optional($invoice->created_at)->format('Y-m-d');
+        $approvedOn = optional($invoice->approved_at ?? $invoice->updated_at)->format('Y-m-d');
 
         $lines = self::headerLines(
             title: 'Invoice',
@@ -76,7 +95,13 @@ class SimplePdf
             items: $items,
             summary: $summary,
             notes: $invoice->notes,
-            layout: $theme['layout']
+            layout: $theme['layout'],
+            company: $theme['company'],
+            preparedBy: $preparedBy,
+            preparedOn: $preparedOn,
+            approvedBy: $approvedBy,
+            approvedOn: $approvedOn,
+            logoDataUrl: $theme['logo']
         );
 
         return self::assemble($body);
@@ -93,11 +118,26 @@ class SimplePdf
 
         $layout = json_decode($settings['pdf_layout'] ?? '[]', true) ?: [];
 
+        $logoPath = $settings['logo_path'] ?? null;
+        $logoDataUrl = $settings['logo_data_url'] ?? ($settings['logo'] ?? null);
+        if (!$logoDataUrl && $logoPath && Storage::disk('public')->exists($logoPath)) {
+            $mime = Storage::disk('public')->mimeType($logoPath) ?: 'image/png';
+            $logoDataUrl = 'data:'.$mime.';base64,'.base64_encode(Storage::disk('public')->get($logoPath));
+        }
+
         return [
             'primary' => $settings['primary_color'] ?? '#31689E',
             'header_text' => $settings['header_text'] ?? ' ',
             'footer_text' => $settings['footer_text'] ?? ' ',
             'watermark' => $layout['watermark_text'] ?? '',
+            'logo' => $logoDataUrl,
+            'logo_path' => $logoPath,
+            'company' => [
+                'name' => $settings['company_name'] ?? '',
+                'address' => $settings['company_address'] ?? '',
+                'phone' => $settings['company_phone'] ?? '',
+                'tax_id' => $settings['company_tax_id'] ?? '',
+            ],
             'layout' => [
                 'show_logo' => (bool) ($layout['show_logo'] ?? true),
                 'margin_top' => $layout['margin_top'] ?? 30,
@@ -155,7 +195,7 @@ class SimplePdf
         return [$rows, $summary];
     }
 
-    protected static function renderDocument(string $title, string $headerText, string $footerText, string $primary, string $watermark, array $lines, array $customer, array $items, array $summary, ?string $notes, array $layout): string
+    protected static function renderDocument(string $title, string $headerText, string $footerText, string $primary, string $watermark, array $lines, array $customer, array $items, array $summary, ?string $notes, array $layout, array $company = [], ?string $preparedBy = null, ?string $preparedOn = null, ?string $approvedBy = null, ?string $approvedOn = null, ?string $logoDataUrl = null): string
     {
         $canvas = new SimplePdfCanvas();
         $canvas->setMargins(36, 36, max(26, (int)($layout['margin_bottom'] ?? 26)));
@@ -163,6 +203,21 @@ class SimplePdf
         $canvas->fillRect(36, 780, 523, 30, $primary);
         $canvas->text($title, 44, 790, 16, 'F2', [1,1,1]);
         $canvas->text($headerText, 44, 776, 10, 'F1', [1,1,1]);
+
+        if (($layout['show_logo'] ?? true) && $logoDataUrl) {
+            $canvas->text('[Logo]', 520, 790, 10, 'F1', [1,1,1]);
+        }
+
+        if (!empty($company)) {
+            $canvas->text($company['name'] ?: ' ', 380, 790, 12, 'F2', [1,1,1]);
+            $canvas->text(trim($company['address'] ?: ''), 380, 776, 9, 'F1', [1,1,1]);
+            if (!empty($company['phone'])) {
+                $canvas->text('Phone: '.$company['phone'], 380, 764, 9, 'F1', [1,1,1]);
+            }
+            if (!empty($company['tax_id'])) {
+                $canvas->text('Tax ID: '.$company['tax_id'], 380, 752, 9, 'F1', [1,1,1]);
+            }
+        }
 
         $y = 740;
         foreach ($lines as $line) {
@@ -204,6 +259,29 @@ class SimplePdf
         $canvas->text('Tax ('.$summary['tax_rate'].'%): '.$summary['tax'], 380, $y, 10);
         $y -= 16;
         $canvas->text('Total: '.$summary['total'], 380, $y, 12, 'F2', [0,0,0]);
+
+        $y -= 22;
+        if ($notes) {
+            $canvas->text('Remark: '.$notes, 40, $y, 10);
+            $y -= 16;
+        }
+
+        if ($preparedBy || $approvedBy) {
+            $canvas->line(36, $y + 6, 559, $y + 6, '#d9e2f3');
+            if ($preparedBy) {
+                $canvas->text('Prepared by: '.$preparedBy, 40, $y, 10);
+            }
+            if ($preparedOn) {
+                $canvas->text('Prepared date: '.$preparedOn, 320, $y, 10);
+            }
+            $y -= 14;
+            if ($approvedBy) {
+                $canvas->text('Approved by: '.$approvedBy, 40, $y, 10);
+            }
+            if ($approvedOn) {
+                $canvas->text('Approved date: '.$approvedOn, 320, $y, 10);
+            }
+        }
 
         if ($watermark) {
             $canvas->watermark($watermark, $primary);
