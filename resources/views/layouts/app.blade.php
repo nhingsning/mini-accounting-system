@@ -61,9 +61,13 @@
     .chart-container canvas{width:100%!important; height:auto!important}
 
     /* Language switcher */
-    .language-switcher{position:fixed; right:18px; top:14px; z-index:1200; background:#fff; border:1px solid #e5e7eb; border-radius:14px; padding:6px 10px; box-shadow:var(--shadow); display:flex; align-items:center; gap:8px; min-width:180px}
-    .language-switcher label{font-size:12px; color:var(--muted); margin:0}
+    .language-switcher{position:fixed; bottom:18px; right:18px; z-index:1200; display:flex; flex-direction:column; align-items:flex-end; gap:8px}
+    .language-switcher .lang-toggle{display:inline-flex; align-items:center; gap:8px; border:none; background:linear-gradient(135deg,var(--brand),var(--brand-2)); color:#fff; padding:10px 14px; border-radius:999px; box-shadow:var(--shadow); font-weight:600}
+    .language-switcher .lang-label{white-space:nowrap; font-size:14px}
+    .language-switcher .lang-panel{position:absolute; bottom:52px; right:0; width:220px; background:#fff; border:1px solid #e5e7eb; border-radius:14px; padding:12px; box-shadow:var(--shadow); opacity:0; pointer-events:none; transform:translateY(8px); transition:all .15s ease}
+    .language-switcher.open .lang-panel{opacity:1; pointer-events:auto; transform:translateY(0)}
     .language-switcher select{border:1px solid #dce3ef; border-radius:10px; padding:6px 8px; font-size:13px; background:#f8fafc}
+    @media(max-width:640px){ .language-switcher{bottom:12px; right:12px} }
   </style>
 
   @stack('head')
