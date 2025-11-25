@@ -10,8 +10,19 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
 
   {{-- === Universal CSS (INLINE เพื่อกันพังแม้โหลดไฟล์ไม่ได้) === --}}
+  @php
+    $primary = $appSettings['primary_color'] ?? '#31689E';
+    $hex = ltrim($primary, '#');
+    $brand2 = '#6f9ad0';
+    if (strlen($hex) === 6) {
+        $r = min(255, hexdec(substr($hex,0,2)) + 28);
+        $g = min(255, hexdec(substr($hex,2,2)) + 28);
+        $b = min(255, hexdec(substr($hex,4,2)) + 28);
+        $brand2 = sprintf('#%02X%02X%02X', $r, $g, $b);
+    }
+  @endphp
   <style>
-    :root{ --brand:#2B4A72; --brand-2:#6f9ad0; --bg:#f4f6fb; --card:#fff; --muted:#6b7280;
+    :root{ --brand:{{ $primary }}; --brand-2:{{ $brand2 }}; --bg:#f4f6fb; --card:#fff; --muted:#6b7280;
            --shadow:0 10px 24px rgba(0,0,0,.06); --radius:16px }
     *{box-sizing:border-box} html{scroll-behavior:smooth}
     body{background:var(--bg); font-family:Inter,system-ui,Roboto,Arial; color:#1f2937}

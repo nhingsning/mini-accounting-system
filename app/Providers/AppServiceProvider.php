@@ -2,9 +2,11 @@
 
 namespace App\Providers;
 
+use App\Models\Setting;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Facades\View;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -19,7 +21,19 @@ class AppServiceProvider extends ServiceProvider
             }
         }
 
+        $this->shareAppSettings();
         $this->ensureSqliteCreditNoteTables();
+    }
+
+    protected function shareAppSettings(): void
+    {
+        try {
+            $settings = Setting::allCached();
+        } catch (\Throwable $e) {
+            $settings = [];
+        }
+
+        View::share('appSettings', $settings);
     }
 
     protected function ensureSqliteCreditNoteTables(): void

@@ -34,15 +34,17 @@
 
   <div class="section-title">{{ __('ui.menu.account') }}</div>
   <nav class="nav flex-column">
-    <a class="nav-link" href="#"><i class="bi bi-gear"></i>{{ __('ui.menu.settings') }}</a>
+    <a class="nav-link {{ request()->routeIs('settings.*') ? 'active' : '' }}" href="{{ route('settings.index') }}">
+      <i class="bi bi-gear"></i>{{ __('ui.menu.settings') }}
+    </a>
     <a class="nav-link" href="#"><i class="bi bi-life-preserver"></i>{{ __('ui.menu.help') }}</a>
-<li class="nav-item mt-auto">
-    <form action="{{ route('logout') }}" method="POST">
-        @csrf
-        <button type="submit" class="nav-link text-danger border-0 bg-transparent w-100 text-start">
-            <i class="bi bi-box-arrow-right me-2"></i> {{ __('ui.menu.logout') }}
-        </button>
-    </form>
-</li>
+    <li class="nav-item mt-auto">
+        <form action="{{ route('logout') }}" method="POST">
+            @csrf
+            <button type="submit" class="nav-link text-danger border-0 bg-transparent w-100 text-start">
+                <i class="bi bi-box-arrow-right me-2"></i> {{ __('ui.menu.logout') }}
+            </button>
+        </form>
+    </li>
   </nav>
 </aside>

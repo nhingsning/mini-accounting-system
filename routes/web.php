@@ -14,6 +14,7 @@ use App\Http\Controllers\CustomerController;    // <-- อันนี้ (เ�
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\BankStatementController;
+use App\Http\Controllers\SettingsController;
 
 /*
 |--------------------------------------------------------------------------
@@ -66,6 +67,13 @@ Route::post('/logout', [AuthController::class, 'logout'])
 Route::get('/dashboard', [DashboardController::class, 'index'])
     ->middleware('auth')
     ->name('dashboard');
+
+Route::get('/settings', [SettingsController::class, 'index'])
+    ->middleware('auth')
+    ->name('settings.index');
+Route::post('/settings', [SettingsController::class, 'update'])
+    ->middleware('auth')
+    ->name('settings.update');
 
 /*
 |--------------------------------------------------------------------------
@@ -129,6 +137,7 @@ Route::redirect('/quotes/{quotation}/send', '/quotations/{quotation}/send')->nam
 Route::redirect('/quotes/{quotation}/convert', '/quotations/{quotation}/convert')->name('quotes.convert');
 
 Route::resource('receipts', ReceiptController::class)->only(['index','create','store','show','edit','update','destroy']);
+Route::get('/receipts/{receiptKey}/pdf', [ReceiptController::class, 'pdf'])->name('receipts.pdf');
 Route::resource('credit-notes', CreditNoteController::class)->only(['index','create','store','show','edit','update','destroy']);
 Route::post('/credit-notes/{credit_note}/submit-approval', [CreditNoteController::class, 'submitForApproval'])->name('credit-notes.submit-approval');
 Route::post('/credit-notes/{credit_note}/approve', [CreditNoteController::class, 'approve'])->name('credit-notes.approve');
