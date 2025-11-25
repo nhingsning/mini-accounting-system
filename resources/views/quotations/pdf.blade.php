@@ -10,12 +10,16 @@
     $title = __('ui.pdf.quotation.title');
     $subtitle = __('ui.pdf.quotation.subtitle');
 
+    $companyName = trim($settings['company_name'] ?? '') ?: $title;
+    $companyAddress = trim($settings['company_address'] ?? '');
+    $companyPhone = trim($settings['company_phone'] ?? '');
+    $companyTaxId = trim($settings['company_tax_id'] ?? '');
+
     $layout = is_array($settings['pdf_layout'] ?? null) ? $settings['pdf_layout'] : [];
     $marginTop = data_get($layout, 'margin_top', 30);
     $marginBottom = data_get($layout, 'margin_bottom', 26);
     $marginLeft = data_get($layout, 'margin_left', 18);
     $marginRight = data_get($layout, 'margin_right', 18);
-    $headerAlign = data_get($layout, 'header_alignment', 'left');
     $tableStyle = data_get($layout, 'table_style', 'bordered');
     $bodyFont = match (data_get($layout, 'body_font_size', 'md')) {
         'sm' => 12,
@@ -29,7 +33,7 @@
     $items = collect($quotation->items ?? []);
     $cur = config('currency.symbol','฿');
     $issue = optional($quotation->issue_date ?? $quotation->created_at)->format('d M Y');
-    $expiry = optional($quotation->expiry_date)->format('d M Y');
+    $expiry = optional($quotation->expiry_date ?? $quotation->valid_until)->format('d M Y');
 
     $subtotal = 0.0;
     foreach ($items as $it) {
@@ -57,89 +61,135 @@
   <style>
     @page { margin: {{ $marginTop }}mm {{ $marginRight }}mm {{ $marginBottom }}mm {{ $marginLeft }}mm; }
     * { box-sizing:border-box; }
-    body { font-family: 'TH Sarabun New','Sarabun','DejaVu Sans', sans-serif; color:#1f2937; font-size: {{ $bodyFont }}px; }
-    .brand { color: {{ $primary }}; font-weight:800; font-size:26px; letter-spacing:0.5px; }
+    body { font-family: 'TH Sarabun New','Sarabun','DejaVu Sans', sans-serif; color:#111827; font-size: {{ $bodyFont }}px; }
+    .watermark { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; color:rgba(49,104,158,0.08); font-size:58px; font-weight:800; letter-spacing:3px; transform:rotate(-22deg); pointer-events:none; }
+    .header-grid { display:grid; grid-template-columns:1.25fr 0.85fr; gap:14px; align-items:start; }
+    .company-card, .doc-box, .panel { border:1px solid #d5deeb; border-radius:10px; padding:14px 16px; }
+    .company-card { background:linear-gradient(120deg, rgba(49,104,158,0.08), #fff); }
+    .doc-box { background:#f8fbff; border-color:{{ $primary }}22; }
+    .company-name { color:{{ $primary }}; font-weight:800; font-size:22px; letter-spacing:0.5px; }
     .muted { color:#6b7280; font-size:12px; }
-    .grid { display:grid; grid-template-columns:1.2fr 1fr; gap:18px; }
-    .card { border:1px solid #dbe4f0; border-radius:10px; padding:14px 16px; }
-    .table { width:100%; border-collapse:collapse; margin-top:6px; }
-    .table th { background: {{ $primary }}; color:#fff; padding:10px 8px; font-size:12px; text-align:left; border: {{ $tableStyle === 'minimal' ? '0' : '1px solid '.$primary }}; }
-    .table td { border: {{ $tableStyle === 'minimal' ? '1px solid transparent' : '1px solid #dbe4f0' }}; border-bottom:1px solid #dbe4f0; padding:8px; font-size:12px; vertical-align:top; }
+    .tagline { color:#334155; font-size:12px; margin-top:2px; }
+    .meta-table { width:100%; border-collapse:collapse; margin-top:8px; font-size:12px; }
+    .meta-table td { padding:6px 4px; border-bottom:1px solid #e5e7eb; }
+    .meta-label { color:#6b7280; width:36%; }
+    .meta-value { font-weight:700; color:#111827; }
+    .band { height:5px; background:linear-gradient(90deg, {{ $primary }}, {{ $secondary }}); margin:14px 0 10px; opacity:{{ $showBand ? '1' : '0' }}; border-radius:999px; }
+    .info-grid { display:grid; grid-template-columns:1.05fr 0.95fr; gap:14px; }
+    .section-title { color:{{ $primary }}; font-weight:700; font-size:14px; margin-bottom:8px; letter-spacing:0.3px; }
+    .info-table { width:100%; border-collapse:collapse; font-size:12px; }
+    .info-table td { padding:5px 0; vertical-align:top; }
+    .info-label { width:32%; color:#6b7280; }
+    .info-value { color:#111827; font-weight:600; }
+    .table { width:100%; border-collapse:collapse; margin-top:10px; }
+    .table th { background: {{ $primary }}; color:#fff; padding:9px 8px; font-size:12px; text-align:left; border:1px solid {{ $primary }}; }
+    .table td { border:1px solid #dbe4f0; padding:8px; font-size:12px; vertical-align:top; }
     .table tbody tr:nth-child(even){ background: {{ $tableStyle === 'striped' ? '#f8fbff' : 'transparent' }}; }
     .table td.num { text-align:right; white-space:nowrap; }
-    .section-title { color: {{ $primary }}; font-weight:700; margin-bottom:6px; font-size:14px; }
-    .totals { width:260px; margin-left:auto; border:1px solid #dbe4f0; border-radius:10px; overflow:hidden; }
-    .totals .row { display:flex; justify-content:space-between; padding:8px 10px; font-size:12px; }
-    .totals .row:nth-child(even){ background:#f5f8fc; }
-    .totals .row strong { font-size:13px; }
-    .divider { height:4px; background: {{ $secondary }}; margin:16px 0 12px; opacity: {{ $showBand ? '0.35' : '0' }}; border-radius:999px; }
-    header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
-    header.header-center { flex-direction:column; align-items:center; text-align:center; }
-    header.header-right { flex-direction:row-reverse; text-align:right; }
-    .meta-block { min-width:180px; }
-    header.header-center .meta-block { text-align:center; }
-    header.header-right .meta-block { text-align:right; }
-    .logo-box { display:flex; gap:12px; align-items:center; }
+    .totals { width:320px; margin-left:auto; border:1px solid #d5deeb; border-radius:10px; overflow:hidden; font-size:12px; }
+    .totals .row { display:flex; justify-content:space-between; padding:9px 12px; }
+    .totals .row:nth-child(odd){ background:#f8fbff; }
+    .totals .row.total { background:{{ $primary }}; color:#fff; font-weight:800; font-size:13px; }
     footer { position:fixed; bottom:{{ max($marginBottom / 2, 10) }}mm; left:{{ $marginLeft }}mm; right:{{ $marginRight }}mm; color:#6b7280; font-size:11px; border-top:1px solid #e5e7eb; padding-top:8px; }
-    .watermark { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; color:rgba(31,41,55,0.08); font-size:52px; font-weight:700; letter-spacing:2px; transform:rotate(-26deg); pointer-events:none; }
+    .signature { margin-top:28px; display:flex; justify-content:space-between; gap:20px; font-size:12px; }
+    .sig-box { flex:1; border-top:1px dashed #cbd5e1; padding-top:10px; text-align:center; color:#334155; }
   </style>
 </head>
 <body>
-  <header class="header header-{{ $headerAlign }}">
-    <div class="logo-box">
-      @if($showLogo && $logoUrl)
-        <img src="{{ $logoUrl }}" alt="Logo" style="height:54px; width:auto; object-fit:contain;">
-      @endif
-      <div>
-        <div class="brand">{{ $title }}</div>
-        <div class="muted" style="margin-top:4px; line-height:1.45; max-width:320px;">{{ $headerText }}</div>
-      </div>
-    </div>
-    <div class="meta-block" style="text-align:right; font-size:12px; color:#1f2937; line-height:1.6;">
-      <div><strong>{{ __('ui.pdf.labels.date') }}:</strong> {{ $issue ?: '-' }}</div>
-      <div><strong>{{ __('ui.pdf.labels.quotation_no') }}:</strong> {{ $quotation->number ?? '-' }}</div>
-      <div><strong>{{ __('ui.pdf.labels.expiry') }}:</strong> {{ $expiry ?: '-' }}</div>
-    </div>
-  </header>
-
   @if($watermark)
     <div class="watermark">{{ $watermark }}</div>
   @endif
 
-  <div class="divider"></div>
-  <div class="muted" style="margin-bottom:10px;">{{ $subtitle }}</div>
-
-  <div class="grid">
-    <div class="card">
-      <div class="section-title">{{ __('ui.pdf.labels.customer') }}</div>
-      <div style="font-weight:700; font-size:13px;">{{ $quotation->customer_name ?? '-' }}</div>
-      <div class="muted" style="margin-top:6px; line-height:1.6; white-space:pre-wrap;">
-        {{ $quotation->customer_address ?? '—' }}
+  <div class="header-grid">
+    <div class="company-card">
+      <div style="display:flex; gap:12px; align-items:center;">
+        @if($showLogo && $logoUrl)
+          <img src="{{ $logoUrl }}" alt="Logo" style="height:62px; width:auto; object-fit:contain;">
+        @endif
+        <div>
+          <div class="company-name">{{ $companyName }}</div>
+          @if($headerText)
+            <div class="tagline">{{ $headerText }}</div>
+          @endif
+        </div>
       </div>
-      @if($quotation->customer_tax_id)
-        <div class="muted" style="margin-top:6px;">{{ __('ui.pdf.labels.tax_id') }}: {{ $quotation->customer_tax_id }}</div>
-      @endif
-      @if($quotation->customer_branch_code)
-        <div class="muted">{{ __('ui.pdf.labels.branch') }}: {{ $quotation->customer_branch_code }}</div>
-      @endif
+      <table class="meta-table">
+        @if($companyAddress)
+          <tr><td class="meta-label">{{ __('ui.pdf.labels.address') }}</td><td class="meta-value">{{ $companyAddress }}</td></tr>
+        @endif
+        @if($companyPhone)
+          <tr><td class="meta-label">{{ __('ui.pdf.labels.phone') }}</td><td class="meta-value">{{ $companyPhone }}</td></tr>
+        @endif
+        @if($companyTaxId)
+          <tr><td class="meta-label">{{ __('ui.pdf.labels.tax_id') }}</td><td class="meta-value">{{ $companyTaxId }}</td></tr>
+        @endif
+      </table>
     </div>
 
-    <div class="card">
-      <div class="section-title">{{ __('ui.pdf.labels.notes') }}</div>
-      <div style="min-height:68px; font-size:12px; line-height:1.6; white-space:pre-wrap;">
-        {{ $quotation->notes ?? '—' }}
+    <div class="doc-box">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+        <div>
+          <div class="muted" style="letter-spacing:0.6px;">{{ strtoupper(__('ui.pdf.quotation.subtitle')) }}</div>
+          <div style="color:{{ $primary }}; font-weight:800; font-size:22px; letter-spacing:1px;">{{ strtoupper(__('ui.pdf.quotation.title')) }}</div>
+        </div>
+        <div style="text-align:right; font-weight:700; color:#111827;">{{ $quotation->number ?? '—' }}</div>
       </div>
+      <table class="meta-table" style="margin-top:10px;">
+        <tr>
+          <td class="meta-label">{{ __('ui.pdf.labels.date') }}</td>
+          <td class="meta-value">{{ $issue ?: '-' }}</td>
+        </tr>
+        <tr>
+          <td class="meta-label">{{ __('ui.pdf.labels.expiry') }}</td>
+          <td class="meta-value">{{ $expiry ?: '-' }}</td>
+        </tr>
+        @if($quotation->reference)
+        <tr>
+          <td class="meta-label">Ref</td>
+          <td class="meta-value">{{ $quotation->reference }}</td>
+        </tr>
+        @endif
+      </table>
     </div>
   </div>
 
-  <table class="table" style="margin-top:14px;">
+  <div class="band"></div>
+  <div class="muted" style="margin-bottom:8px;">{{ $subtitle }}</div>
+
+  <div class="info-grid">
+    <div class="panel">
+      <div class="section-title">{{ __('ui.pdf.labels.customer') }}</div>
+      <table class="info-table">
+        <tr><td class="info-label">{{ __('ui.pdf.labels.customer') }}</td><td class="info-value">{{ $quotation->customer_name ?? '—' }}</td></tr>
+        <tr><td class="info-label">{{ __('ui.pdf.labels.address') }}</td><td class="info-value" style="white-space:pre-wrap;">{{ $quotation->customer_address ?? '—' }}</td></tr>
+        @if($quotation->customer_tax_id)
+          <tr><td class="info-label">{{ __('ui.pdf.labels.tax_id') }}</td><td class="info-value">{{ $quotation->customer_tax_id }}</td></tr>
+        @endif
+        @if($quotation->customer_branch_code)
+          <tr><td class="info-label">{{ __('ui.pdf.labels.branch') }}</td><td class="info-value">{{ $quotation->customer_branch_code }}</td></tr>
+        @endif
+      </table>
+    </div>
+
+    <div class="panel">
+      <div class="section-title">{{ __('ui.pdf.labels.notes') }}</div>
+      <table class="info-table">
+        <tr><td class="info-label">{{ __('ui.pdf.labels.phone') }}</td><td class="info-value">{{ $quotation->contact_phone ?? ($quotation->customer_phone ?? '—') }}</td></tr>
+        <tr><td class="info-label">{{ __('ui.pdf.labels.email') }}</td><td class="info-value">{{ $quotation->contact_email ?? '—' }}</td></tr>
+        <tr><td class="info-label">Attn.</td><td class="info-value">{{ $quotation->contact_name ?? '—' }}</td></tr>
+        <tr><td class="info-label">{{ __('ui.pdf.labels.notes') }}</td><td class="info-value" style="white-space:pre-wrap;">{{ $quotation->notes ?? '—' }}</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <table class="table" style="margin-top:16px;">
     <thead>
       <tr>
-        <th style="width:34px;">#</th>
+        <th style="width:40px;">#</th>
         <th>{{ __('ui.pdf.labels.description') }}</th>
-        <th style="width:70px; text-align:right;">{{ __('ui.pdf.labels.qty') }}</th>
-        <th style="width:90px; text-align:right;">{{ __('ui.pdf.labels.unit_price') }}</th>
-        <th style="width:100px; text-align:right;">{{ __('ui.pdf.labels.line_total') }}</th>
+        <th style="width:80px; text-align:right;">{{ __('ui.pdf.labels.qty') }}</th>
+        <th style="width:110px; text-align:right;">{{ __('ui.pdf.labels.unit_price') }}</th>
+        <th style="width:120px; text-align:right;">{{ __('ui.pdf.labels.line_total') }}</th>
       </tr>
     </thead>
     <tbody>
@@ -167,10 +217,15 @@
 
   <div style="display:flex; justify-content:flex-end; margin-top:12px;">
     <div class="totals">
-      <div class="row"><span>{{ __('ui.pdf.labels.subtotal') }}:</span><strong>{{ $cur }}{{ number_format($subtotal,2) }}</strong></div>
-      <div class="row"><span>{{ __('ui.pdf.labels.tax') }} ({{ number_format($taxRate,2) }}%):</span><strong>{{ $cur }}{{ number_format($tax,2) }}</strong></div>
-      <div class="row" style="font-weight:800; background: {{ $primary }}; color:#fff;"><span>{{ __('ui.pdf.labels.total') }}:</span><span>{{ $cur }}{{ number_format($total,2) }}</span></div>
+      <div class="row"><span>{{ __('ui.pdf.labels.subtotal') }}</span><span>{{ $cur }}{{ number_format($subtotal,2) }}</span></div>
+      <div class="row"><span>{{ __('ui.pdf.labels.tax') }} ({{ number_format($taxRate,2) }}%)</span><span>{{ $cur }}{{ number_format($tax,2) }}</span></div>
+      <div class="row total"><span>{{ __('ui.pdf.labels.total') }}</span><span>{{ $cur }}{{ number_format($total,2) }}</span></div>
     </div>
+  </div>
+
+  <div class="signature">
+    <div class="sig-box">{{ __('ui.pdf.labels.customer') }} / {{ __('ui.pdf.labels.notes') }}</div>
+    <div class="sig-box">{{ __('ui.pdf.labels.company') }}</div>
   </div>
 
   @if($footerText)

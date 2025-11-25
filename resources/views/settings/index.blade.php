@@ -83,6 +83,37 @@
           </div>
         </div>
 
+        <div class="panel mb-3">
+          <div class="panel-header">
+            <div class="fw-semibold">{{ __('ui.settings.company_title') }}</div>
+            <button type="submit" class="btn btn-brand btn-sm">
+              <i class="bi bi-save me-1"></i>{{ __('ui.actions.save') }}
+            </button>
+          </div>
+          <div class="panel-body row g-4">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">{{ __('ui.settings.company_name') }}</label>
+              <input type="text" class="form-control" name="company_name" value="{{ old('company_name', $appSettings['company_name'] ?? '') }}" placeholder="{{ __('ui.settings.company_name_placeholder') }}">
+              <div class="form-text">{{ __('ui.settings.company_name_helper') }}</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">{{ __('ui.settings.company_tax_id') }}</label>
+              <input type="text" class="form-control" name="company_tax_id" value="{{ old('company_tax_id', $appSettings['company_tax_id'] ?? '') }}" placeholder="{{ __('ui.settings.company_tax_placeholder') }}">
+              <div class="form-text">{{ __('ui.settings.company_tax_helper') }}</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">{{ __('ui.settings.company_phone') }}</label>
+              <input type="text" class="form-control" name="company_phone" value="{{ old('company_phone', $appSettings['company_phone'] ?? '') }}" placeholder="{{ __('ui.settings.company_phone_placeholder') }}">
+              <div class="form-text">{{ __('ui.settings.company_phone_helper') }}</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">{{ __('ui.settings.company_address') }}</label>
+              <textarea class="form-control" name="company_address" rows="3" placeholder="{{ __('ui.settings.company_address_placeholder') }}">{{ old('company_address', $appSettings['company_address'] ?? '') }}</textarea>
+              <div class="form-text">{{ __('ui.settings.company_address_helper') }}</div>
+            </div>
+          </div>
+        </div>
+
         <div class="panel">
           <div class="panel-header">
             <div class="fw-semibold">{{ __('ui.settings.document_template') }}</div>

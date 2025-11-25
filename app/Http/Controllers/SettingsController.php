@@ -37,6 +37,10 @@ class SettingsController extends Controller
             'primary_color' => ['nullable', 'regex:/^#([A-Fa-f0-9]{6})$/'],
             'header_text' => ['nullable', 'string', 'max:255'],
             'footer_text' => ['nullable', 'string', 'max:500'],
+            'company_name' => ['nullable', 'string', 'max:150'],
+            'company_address' => ['nullable', 'string', 'max:500'],
+            'company_phone' => ['nullable', 'string', 'max:120'],
+            'company_tax_id' => ['nullable', 'string', 'max:120'],
             'default_language' => ['required', Rule::in(['th', 'en'])],
         ]);
 
