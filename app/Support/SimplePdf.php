@@ -4,140 +4,228 @@ namespace App\Support;
 
 use App\Models\Invoice;
 use App\Models\Quotation;
+use App\Models\Setting;
 
 class SimplePdf
 {
     /**
-     * Generate a lightweight text-only PDF as a fallback when dompdf is unavailable.
+     * Generate a layout-aware PDF fallback (used when Dompdf isn't installed).
      */
     public static function quotation(Quotation $q): string
     {
-        $lines = [];
-        $lines[] = 'Quotation: '.($q->number ?? '-');
-        $lines[] = 'Date: '.optional($q->issue_date)->format('Y-m-d');
-        $lines[] = 'Customer: '.($q->customer_name ?? '-');
-        if ($q->customer_address) {
-            $lines[] = 'Address: '.str_replace(["\r","\n"],' ', $q->customer_address);
-        }
-        if ($q->customer_tax_id) {
-            $lines[] = 'Tax ID: '.$q->customer_tax_id;
-        }
-        $lines[] = 'Items:';
+        $theme = self::theme();
 
+        $lines = self::headerLines(
+            title: 'Quotation',
+            number: $q->number,
+            date: optional($q->issue_date)->format('Y-m-d')
+        );
+
+        $customer = [
+            'Customer' => $q->customer_name,
+            'Address'  => $q->customer_address,
+            'Tax ID'   => $q->customer_tax_id,
+        ];
+
+        [$items, $summary] = self::itemTable($q->items, $q->tax_rate, $q->tax, $q->total);
+
+        $body = self::renderDocument(
+            title: 'Quotation',
+            headerText: $theme['header_text'],
+            footerText: $theme['footer_text'],
+            primary: $theme['primary'],
+            watermark: $theme['watermark'],
+            lines: $lines,
+            customer: $customer,
+            items: $items,
+            summary: $summary,
+            notes: $q->notes,
+            layout: $theme['layout']
+        );
+
+        return self::assemble($body);
+    }
+
+    public static function invoice(Invoice $invoice): string
+    {
+        $theme = self::theme();
+
+        $lines = self::headerLines(
+            title: 'Invoice',
+            number: $invoice->number,
+            date: optional($invoice->issue_date ?? $invoice->created_at)->format('Y-m-d'),
+            extra: $invoice->quotation_number ? 'From quotation: '.$invoice->quotation_number : null
+        );
+
+        $customer = [
+            'Customer' => $invoice->customer_name,
+            'Address'  => $invoice->customer_address,
+            'Tax ID'   => $invoice->customer_tax_id,
+        ];
+
+        [$items, $summary] = self::itemTable($invoice->items, $invoice->tax_rate, $invoice->tax, $invoice->total);
+
+        $body = self::renderDocument(
+            title: 'Invoice',
+            headerText: $theme['header_text'],
+            footerText: $theme['footer_text'],
+            primary: $theme['primary'],
+            watermark: $theme['watermark'],
+            lines: $lines,
+            customer: $customer,
+            items: $items,
+            summary: $summary,
+            notes: $invoice->notes,
+            layout: $theme['layout']
+        );
+
+        return self::assemble($body);
+    }
+
+    protected static function theme(): array
+    {
+        $settings = [];
+        try {
+            $settings = Setting::allCached();
+        } catch (\Throwable $e) {
+            // ignore
+        }
+
+        $layout = json_decode($settings['pdf_layout'] ?? '[]', true) ?: [];
+
+        return [
+            'primary' => $settings['primary_color'] ?? '#31689E',
+            'header_text' => $settings['header_text'] ?? ' ',
+            'footer_text' => $settings['footer_text'] ?? ' ',
+            'watermark' => $layout['watermark_text'] ?? '',
+            'layout' => [
+                'show_logo' => (bool) ($layout['show_logo'] ?? true),
+                'margin_top' => $layout['margin_top'] ?? 30,
+                'margin_bottom' => $layout['margin_bottom'] ?? 26,
+            ],
+        ];
+    }
+
+    protected static function headerLines(string $title, ?string $number, ?string $date, ?string $extra = null): array
+    {
+        $lines = [];
+        $lines[] = $title.': '.($number ?: '-');
+        $lines[] = 'Date: '.($date ?: '-');
+        if ($extra) {
+            $lines[] = $extra;
+        }
+
+        return $lines;
+    }
+
+    protected static function itemTable($items, $taxRateRaw, $taxRaw, $totalRaw): array
+    {
+        $rows = [];
         $subtotal = 0.0;
-        if (method_exists($q, 'items')) {
-            foreach ($q->items as $idx => $it) {
+
+        if ($items) {
+            foreach ($items as $idx => $it) {
                 $qty   = (float)($it->qty ?? $it->quantity ?? 0);
                 $price = (float)($it->price ?? $it->unit_price ?? 0);
                 $disc  = (float)($it->discount ?? 0);
                 $line  = max(($qty * $price) - $disc, 0);
                 $subtotal += $line;
-                $title = ($idx+1).'. '.trim((string)($it->description ?? ''));
-                $lines[] = $title ?: (($idx+1).'. —');
-                $lines[] = sprintf('    qty %.2f x %.2f - discount %.2f = %.2f', $qty, $price, $disc, $line);
+
+                $rows[] = [
+                    'idx' => $idx + 1,
+                    'desc' => (string)($it->description ?? '—'),
+                    'qty' => number_format($qty, 2),
+                    'price' => number_format($price, 2),
+                    'line' => number_format($line, 2),
+                ];
             }
         }
 
-        $taxRate = (float)($q->tax_rate ?? 0);
-        $tax = (float)($q->tax ?? ($subtotal * ($taxRate/100)));
-        $total = (float)($q->total ?? ($subtotal + $tax));
+        $taxRate = (float)($taxRateRaw ?? 0);
+        $tax = (float)($taxRaw ?? ($subtotal * ($taxRate/100)));
+        $total = (float)($totalRaw ?? ($subtotal + $tax));
 
-        $lines[] = 'Subtotal: '.number_format($subtotal, 2);
-        $lines[] = 'Tax ('.number_format($taxRate,2).'%) : '.number_format($tax, 2);
-        $lines[] = 'Total: '.number_format($total, 2);
+        $summary = [
+            'subtotal' => number_format($subtotal, 2),
+            'tax' => number_format($tax, 2),
+            'tax_rate' => number_format($taxRate, 2),
+            'total' => number_format($total, 2),
+        ];
 
-        // --- Build a minimal PDF document ---
-        $nl = "\r\n";
-        $stream = "BT{$nl}/F1 12 Tf{$nl}50 780 Td{$nl}";
-        foreach ($lines as $line) {
-            $stream .= '('.self::escapeText($line).") Tj{$nl}0 -18 Td{$nl}";
-        }
-        $stream .= "ET{$nl}";
-
-        $objects = [];
-        $objects[] = '<< /Type /Catalog /Pages 2 0 R >>';
-        $objects[] = '<< /Type /Pages /Kids [3 0 R] /Count 1 >>';
-        $objects[] = '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>';
-        $objects[] = "<< /Length ".strlen($stream)." >>{$nl}stream{$nl}".$stream."endstream{$nl}";
-        $objects[] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>';
-
-        $pdf = "%PDF-1.4{$nl}%".chr(0xE2).chr(0xE3).chr(0xCF).chr(0xD3).$nl; // binary comment to satisfy PDF readers
-        $offsets = [];
-        foreach ($objects as $i => $obj) {
-            $offsets[$i] = strlen($pdf);
-            $pdf .= ($i + 1).' 0 obj'.$nl.$obj."endobj{$nl}";
-        }
-
-        $pdf .= $nl; // spacer before xref improves compatibility
-        $xrefOffset = strlen($pdf);
-
-        $pdf .= 'xref'.$nl;
-        $pdf .= '0 '.(count($objects) + 1).$nl;
-        $pdf .= '0000000000 65535 f '.$nl;
-        foreach ($offsets as $off) {
-            $pdf .= sprintf('%010d 00000 n '.$nl, $off);
-        }
-
-        $pdf .= 'trailer'.$nl;
-        $pdf .= '<< /Size '.(count($objects) + 1).' /Root 1 0 R >>'.$nl;
-        $pdf .= 'startxref'.$nl.$xrefOffset.$nl;
-        $pdf .= '%%EOF'.$nl;
-
-        return $pdf;
+        return [$rows, $summary];
     }
 
-    public static function invoice(Invoice $invoice): string
+    protected static function renderDocument(string $title, string $headerText, string $footerText, string $primary, string $watermark, array $lines, array $customer, array $items, array $summary, ?string $notes, array $layout): string
     {
-        $lines = [];
-        $lines[] = 'Invoice: '.($invoice->number ?? '-');
-        $lines[] = 'Date: '.optional($invoice->issue_date ?? $invoice->created_at)->format('Y-m-d');
-        $lines[] = 'Customer: '.($invoice->customer_name ?? '-');
-        if ($invoice->customer_address) {
-            $lines[] = 'Address: '.str_replace(["\r","\n"],' ', $invoice->customer_address);
-        }
-        if ($invoice->customer_tax_id) {
-            $lines[] = 'Tax ID: '.$invoice->customer_tax_id;
-        }
-        if ($invoice->quotation_number) {
-            $lines[] = 'From quotation: '.$invoice->quotation_number;
-        }
-        $lines[] = 'Items:';
+        $canvas = new SimplePdfCanvas();
+        $canvas->setMargins(36, 36, max(26, (int)($layout['margin_bottom'] ?? 26)));
 
-        $subtotal = 0.0;
-        if (method_exists($invoice, 'items')) {
-            foreach ($invoice->items as $idx => $it) {
-                $qty   = (float)($it->qty ?? $it->quantity ?? 0);
-                $price = (float)($it->price ?? $it->unit_price ?? 0);
-                $line  = ($qty * $price);
-                $subtotal += $line;
-                $title = ($idx+1).'. '.trim((string)($it->description ?? ''));
-                $lines[] = $title ?: (($idx+1).'. —');
-                $lines[] = sprintf('    qty %.2f x %.2f = %.2f', $qty, $price, $line);
+        $canvas->fillRect(36, 780, 523, 30, $primary);
+        $canvas->text($title, 44, 790, 16, 'F2', [1,1,1]);
+        $canvas->text($headerText, 44, 776, 10, 'F1', [1,1,1]);
+
+        $y = 740;
+        foreach ($lines as $line) {
+            $canvas->text($line, 40, $y, 11, 'F2', [0.12,0.18,0.28]);
+            $y -= 14;
+        }
+
+        $canvas->line(36, $y + 4, 559, $y + 4, $primary);
+
+        $y -= 20;
+        $canvas->text('Customer', 40, $y, 12, 'F2', self::rgb($primary));
+        foreach ($customer as $label => $value) {
+            $y -= 14;
+            if ($value) {
+                $canvas->text($label.': '.$value, 44, $y, 10);
             }
         }
 
-        $taxRate = (float)($invoice->tax_rate ?? 0);
-        $tax = (float)($invoice->tax ?? ($subtotal * ($taxRate/100)));
-        $total = (float)($invoice->total ?? ($subtotal + $tax));
-
-        $lines[] = 'Subtotal: '.number_format($subtotal, 2);
-        $lines[] = 'Tax ('.number_format($taxRate,2).'%) : '.number_format($tax, 2);
-        $lines[] = 'Total: '.number_format($total, 2);
-
-        // Build the same minimal PDF structure as quotation
-        $nl = "\r\n";
-        $stream = "BT{$nl}/F1 12 Tf{$nl}50 780 Td{$nl}";
-        foreach ($lines as $line) {
-            $stream .= '('.self::escapeText($line).") Tj{$nl}0 -18 Td{$nl}";
+        if ($notes) {
+            $y -= 22;
+            $canvas->text('Notes', 40, $y, 12, 'F2', self::rgb($primary));
+            $y -= 14;
+            $canvas->text($notes, 44, $y, 10);
         }
-        $stream .= "ET{$nl}";
 
+        $y -= 24;
+        $canvas->tableHeader($y, $primary);
+        $y -= 18;
+        foreach ($items as $row) {
+            $canvas->tableRow($y, $row);
+            $y -= 18;
+        }
+
+        $y -= 6;
+        $canvas->line(36, $y, 559, $y, '#d9e2f3');
+        $y -= 18;
+        $canvas->text('Subtotal: '.$summary['subtotal'], 380, $y, 11, 'F2', self::rgb($primary));
+        $y -= 14;
+        $canvas->text('Tax ('.$summary['tax_rate'].'%): '.$summary['tax'], 380, $y, 10);
+        $y -= 16;
+        $canvas->text('Total: '.$summary['total'], 380, $y, 12, 'F2', [0,0,0]);
+
+        if ($watermark) {
+            $canvas->watermark($watermark, $primary);
+        }
+
+        if ($footerText) {
+            $canvas->text($footerText, 40, 40, 9, 'F1', [0.4,0.45,0.5]);
+        }
+
+        return $canvas->content();
+    }
+
+    protected static function assemble(string $stream): string
+    {
+        $nl = "\r\n";
         $objects = [];
         $objects[] = '<< /Type /Catalog /Pages 2 0 R >>';
         $objects[] = '<< /Type /Pages /Kids [3 0 R] /Count 1 >>';
-        $objects[] = '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>';
+        $objects[] = '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> >>';
         $objects[] = "<< /Length ".strlen($stream)." >>{$nl}stream{$nl}".$stream."endstream{$nl}";
         $objects[] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>';
+        $objects[] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>';
 
         $pdf = "%PDF-1.4{$nl}%".chr(0xE2).chr(0xE3).chr(0xCF).chr(0xD3).$nl;
         $offsets = [];
@@ -164,8 +252,85 @@ class SimplePdf
         return $pdf;
     }
 
+    protected static function rgb(string $hex): array
+    {
+        $hex = ltrim($hex, '#');
+        if (strlen($hex) !== 6) {
+            return [0.19, 0.41, 0.62];
+        }
+        return [
+            hexdec(substr($hex, 0, 2)) / 255,
+            hexdec(substr($hex, 2, 2)) / 255,
+            hexdec(substr($hex, 4, 2)) / 255,
+        ];
+    }
+
     private static function escapeText(string $text): string
     {
         return str_replace(['\\', '(', ')'], ['\\\\','\\(','\\)'], $text);
+    }
+}
+
+class SimplePdfCanvas
+{
+    protected string $stream = '';
+    protected int $marginLeft = 36;
+    protected int $marginBottom = 36;
+
+    public function setMargins(int $left, int $right, int $bottom): void
+    {
+        $this->marginLeft = $left;
+        $this->marginBottom = $bottom;
+    }
+
+    public function text(string $text, float $x, float $y, int $size = 11, string $font = 'F1', array $color = [0,0,0]): void
+    {
+        $this->stream .= sprintf("BT\n%.3f %.3f %.3f rg\n/%s %d Tf\n%.2f %.2f Td\n(%s) Tj\nET\n",
+            $color[0], $color[1], $color[2], $font, $size, $x, $y, SimplePdf::escapeText($text)
+        );
+    }
+
+    public function line(float $x1, float $y1, float $x2, float $y2, string $color = '#dbe4f0'): void
+    {
+        [$r,$g,$b] = SimplePdf::rgb($color);
+        $this->stream .= sprintf("%.3f %.3f %.3f RG\n%.3f %.3f m\n%.3f %.3f l\nS\n", $r,$g,$b,$x1,$y1,$x2,$y2);
+    }
+
+    public function fillRect(float $x, float $y, float $w, float $h, string $color): void
+    {
+        [$r,$g,$b] = SimplePdf::rgb($color);
+        $this->stream .= sprintf("%.3f %.3f %.3f rg\n%.2f %.2f %.2f %.2f re f\n", $r,$g,$b,$x,$y,$w,$h);
+    }
+
+    public function tableHeader(float $y, string $primary): void
+    {
+        $this->fillRect(36, $y-2, 523, 16, $primary);
+        $this->text('#', 44, $y+3, 10, 'F2', [1,1,1]);
+        $this->text('Description', 70, $y+3, 10, 'F2', [1,1,1]);
+        $this->text('Qty', 370, $y+3, 10, 'F2', [1,1,1]);
+        $this->text('Unit', 430, $y+3, 10, 'F2', [1,1,1]);
+        $this->text('Total', 500, $y+3, 10, 'F2', [1,1,1]);
+    }
+
+    public function tableRow(float $y, array $row): void
+    {
+        $this->text((string) $row['idx'], 44, $y, 10);
+        $this->text($row['desc'], 70, $y, 10);
+        $this->text($row['qty'], 370, $y, 10);
+        $this->text($row['price'], 430, $y, 10);
+        $this->text($row['line'], 500, $y, 10);
+    }
+
+    public function watermark(string $text, string $primary): void
+    {
+        [$r,$g,$b] = SimplePdf::rgb($primary);
+        $this->stream .= sprintf("q %.3f %.3f %.3f rg 0.25 w\n1 0 0.2 1 180 360 cm\nBT\n/F2 36 Tf\n50 300 Td\n(%s) Tj\nET\nQ\n",
+            $r,$g,$b, SimplePdf::escapeText($text)
+        );
+    }
+
+    public function content(): string
+    {
+        return $this->stream;
     }
 }
