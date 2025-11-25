@@ -25,7 +25,29 @@ class AppServiceProvider extends ServiceProvider
         $this->ensureSettingsTable();
         $this->seedDefaultSettings();
         $this->shareAppSettings();
+        $this->ensureInvoicePaymentColumns();
         $this->ensureSqliteCreditNoteTables();
+    }
+
+    protected function ensureInvoicePaymentColumns(): void
+    {
+        try {
+            if (! Schema::hasTable('invoices')) {
+                return;
+            }
+
+            Schema::table('invoices', function ($table) {
+                if (! Schema::hasColumn('invoices', 'paid_total')) {
+                    $table->decimal('paid_total', 12, 2)->default(0)->after('total');
+                }
+
+                if (! Schema::hasColumn('invoices', 'outstanding_total')) {
+                    $table->decimal('outstanding_total', 12, 2)->default(0)->after('paid_total');
+                }
+            });
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 
     protected function shareAppSettings(): void
