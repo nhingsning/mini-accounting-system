@@ -19,7 +19,10 @@
           <div class="text-muted small">{{ __('ui.settings.subtitle') }}</div>
         </div>
       </div>
-      <div class="ms-auto">
+      <div class="ms-auto d-flex align-items-center gap-2">
+        <a href="{{ route('settings.layout') }}" class="btn btn-soft btn-sm">
+          <i class="bi bi-magic me-1"></i>{{ __('ui.settings.layout_title') }}
+        </a>
         <span class="badge text-bg-light">{{ __('ui.settings.language_default') }}: {{ strtoupper($appSettings['default_language'] ?? app()->getLocale()) }}</span>
       </div>
     </div>

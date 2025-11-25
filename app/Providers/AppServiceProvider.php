@@ -35,6 +35,14 @@ class AppServiceProvider extends ServiceProvider
             $settings = [];
         }
 
+        $layoutRaw = $settings['pdf_layout'] ?? null;
+        $layout = json_decode($layoutRaw ?? '[]', true);
+        if (! is_array($layout)) {
+            $layout = [];
+        }
+
+        $settings['pdf_layout'] = array_merge($this->defaultPdfLayout(), $layout);
+
         View::share('appSettings', $settings);
     }
 
@@ -91,6 +99,7 @@ class AppServiceProvider extends ServiceProvider
             $defaults = [
                 'primary_color' => '#31689E',
                 'default_language' => config('app.locale', 'en'),
+                'pdf_layout' => json_encode($this->defaultPdfLayout()),
             ];
 
             foreach ($defaults as $key => $value) {
@@ -147,5 +156,22 @@ class AppServiceProvider extends ServiceProvider
         } catch (\Throwable $e) {
             report($e);
         }
+    }
+
+    protected function defaultPdfLayout(): array
+    {
+        return [
+            'layout_variant' => 'modern',
+            'header_alignment' => 'left',
+            'table_style' => 'bordered',
+            'body_font_size' => 'md',
+            'margin_top' => 30,
+            'margin_bottom' => 26,
+            'margin_left' => 18,
+            'margin_right' => 18,
+            'watermark_text' => null,
+            'background_band' => true,
+            'show_logo' => true,
+        ];
     }
 }

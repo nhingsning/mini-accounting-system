@@ -10,6 +10,22 @@
     $title = __('ui.pdf.quotation.title');
     $subtitle = __('ui.pdf.quotation.subtitle');
 
+    $layout = is_array($settings['pdf_layout'] ?? null) ? $settings['pdf_layout'] : [];
+    $marginTop = data_get($layout, 'margin_top', 30);
+    $marginBottom = data_get($layout, 'margin_bottom', 26);
+    $marginLeft = data_get($layout, 'margin_left', 18);
+    $marginRight = data_get($layout, 'margin_right', 18);
+    $headerAlign = data_get($layout, 'header_alignment', 'left');
+    $tableStyle = data_get($layout, 'table_style', 'bordered');
+    $bodyFont = match (data_get($layout, 'body_font_size', 'md')) {
+        'sm' => 12,
+        'lg' => 16,
+        default => 14,
+    };
+    $showBand = (bool) data_get($layout, 'background_band', true);
+    $showLogo = (bool) data_get($layout, 'show_logo', true);
+    $watermark = trim((string) data_get($layout, 'watermark_text', ''));
+
     $items = collect($quotation->items ?? []);
     $cur = config('currency.symbol','฿');
     $issue = optional($quotation->issue_date ?? $quotation->created_at)->format('d M Y');
@@ -39,32 +55,39 @@
 <head>
   <meta charset="UTF-8">
   <style>
-    @page { margin: 30mm 18mm 26mm 18mm; }
+    @page { margin: {{ $marginTop }}mm {{ $marginRight }}mm {{ $marginBottom }}mm {{ $marginLeft }}mm; }
     * { box-sizing:border-box; }
-    body { font-family: 'TH Sarabun New','Sarabun','DejaVu Sans', sans-serif; color:#1f2937; }
+    body { font-family: 'TH Sarabun New','Sarabun','DejaVu Sans', sans-serif; color:#1f2937; font-size: {{ $bodyFont }}px; }
     .brand { color: {{ $primary }}; font-weight:800; font-size:26px; letter-spacing:0.5px; }
     .muted { color:#6b7280; font-size:12px; }
     .grid { display:grid; grid-template-columns:1.2fr 1fr; gap:18px; }
     .card { border:1px solid #dbe4f0; border-radius:10px; padding:14px 16px; }
     .table { width:100%; border-collapse:collapse; margin-top:6px; }
-    .table th { background: {{ $primary }}; color:#fff; padding:10px 8px; font-size:12px; text-align:left; }
-    .table td { border:1px solid #dbe4f0; padding:8px; font-size:12px; vertical-align:top; }
+    .table th { background: {{ $primary }}; color:#fff; padding:10px 8px; font-size:12px; text-align:left; border: {{ $tableStyle === 'minimal' ? '0' : '1px solid '.$primary }}; }
+    .table td { border: {{ $tableStyle === 'minimal' ? '1px solid transparent' : '1px solid #dbe4f0' }}; border-bottom:1px solid #dbe4f0; padding:8px; font-size:12px; vertical-align:top; }
+    .table tbody tr:nth-child(even){ background: {{ $tableStyle === 'striped' ? '#f8fbff' : 'transparent' }}; }
     .table td.num { text-align:right; white-space:nowrap; }
     .section-title { color: {{ $primary }}; font-weight:700; margin-bottom:6px; font-size:14px; }
     .totals { width:260px; margin-left:auto; border:1px solid #dbe4f0; border-radius:10px; overflow:hidden; }
     .totals .row { display:flex; justify-content:space-between; padding:8px 10px; font-size:12px; }
     .totals .row:nth-child(even){ background:#f5f8fc; }
     .totals .row strong { font-size:13px; }
-    .divider { height:4px; background: {{ $secondary }}; margin:16px 0 12px; opacity:0.35; border-radius:999px; }
-    header { display:flex; justify-content:space-between; align-items:flex-start; }
+    .divider { height:4px; background: {{ $secondary }}; margin:16px 0 12px; opacity: {{ $showBand ? '0.35' : '0' }}; border-radius:999px; }
+    header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
+    header.header-center { flex-direction:column; align-items:center; text-align:center; }
+    header.header-right { flex-direction:row-reverse; text-align:right; }
+    .meta-block { min-width:180px; }
+    header.header-center .meta-block { text-align:center; }
+    header.header-right .meta-block { text-align:right; }
     .logo-box { display:flex; gap:12px; align-items:center; }
-    footer { position:fixed; bottom:14mm; left:18mm; right:18mm; color:#6b7280; font-size:11px; border-top:1px solid #e5e7eb; padding-top:8px; }
+    footer { position:fixed; bottom:{{ max($marginBottom / 2, 10) }}mm; left:{{ $marginLeft }}mm; right:{{ $marginRight }}mm; color:#6b7280; font-size:11px; border-top:1px solid #e5e7eb; padding-top:8px; }
+    .watermark { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; color:rgba(31,41,55,0.08); font-size:52px; font-weight:700; letter-spacing:2px; transform:rotate(-26deg); pointer-events:none; }
   </style>
 </head>
 <body>
-  <header>
+  <header class="header header-{{ $headerAlign }}">
     <div class="logo-box">
-      @if($logoUrl)
+      @if($showLogo && $logoUrl)
         <img src="{{ $logoUrl }}" alt="Logo" style="height:54px; width:auto; object-fit:contain;">
       @endif
       <div>
@@ -72,12 +95,16 @@
         <div class="muted" style="margin-top:4px; line-height:1.45; max-width:320px;">{{ $headerText }}</div>
       </div>
     </div>
-    <div style="text-align:right; font-size:12px; color:#1f2937; line-height:1.6;">
+    <div class="meta-block" style="text-align:right; font-size:12px; color:#1f2937; line-height:1.6;">
       <div><strong>{{ __('ui.pdf.labels.date') }}:</strong> {{ $issue ?: '-' }}</div>
       <div><strong>{{ __('ui.pdf.labels.quotation_no') }}:</strong> {{ $quotation->number ?? '-' }}</div>
       <div><strong>{{ __('ui.pdf.labels.expiry') }}:</strong> {{ $expiry ?: '-' }}</div>
     </div>
   </header>
+
+  @if($watermark)
+    <div class="watermark">{{ $watermark }}</div>
+  @endif
 
   <div class="divider"></div>
   <div class="muted" style="margin-bottom:10px;">{{ $subtitle }}</div>

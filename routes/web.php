@@ -74,6 +74,12 @@ Route::get('/settings', [SettingsController::class, 'index'])
 Route::post('/settings', [SettingsController::class, 'update'])
     ->middleware('auth')
     ->name('settings.update');
+Route::get('/settings/layout', [SettingsController::class, 'layout'])
+    ->middleware('auth')
+    ->name('settings.layout');
+Route::post('/settings/layout', [SettingsController::class, 'updateLayout'])
+    ->middleware('auth')
+    ->name('settings.layout.update');
 
 /*
 |--------------------------------------------------------------------------

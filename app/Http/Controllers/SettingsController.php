@@ -19,6 +19,17 @@ class SettingsController extends Controller
         return view('settings.index', compact('settings', 'logoUrl'));
     }
 
+    public function layout()
+    {
+        $settings = Setting::allCached();
+        $layout = $this->decodeLayout($settings['pdf_layout'] ?? null);
+
+        return view('settings.layout', [
+            'settings' => $settings,
+            'layout' => $layout,
+        ]);
+    }
+
     public function update(Request $request)
     {
         $data = $request->validate([
@@ -44,5 +55,52 @@ class SettingsController extends Controller
         Cache::forget('app.settings');
 
         return back()->with('ok', __('ui.settings.saved'));
+    }
+
+    public function updateLayout(Request $request)
+    {
+        $data = $request->validate([
+            'layout_variant' => ['required', Rule::in(['modern', 'classic', 'minimal'])],
+            'header_alignment' => ['required', Rule::in(['left', 'center', 'right'])],
+            'table_style' => ['required', Rule::in(['bordered', 'striped', 'minimal'])],
+            'body_font_size' => ['required', Rule::in(['sm', 'md', 'lg'])],
+            'margin_top' => ['required', 'integer', 'min:6', 'max:40'],
+            'margin_bottom' => ['required', 'integer', 'min:6', 'max:40'],
+            'margin_left' => ['required', 'integer', 'min:6', 'max:30'],
+            'margin_right' => ['required', 'integer', 'min:6', 'max:30'],
+            'watermark_text' => ['nullable', 'string', 'max:80'],
+            'background_band' => ['nullable', 'boolean'],
+            'show_logo' => ['nullable', 'boolean'],
+        ]);
+
+        $layout = [
+            'layout_variant' => $data['layout_variant'],
+            'header_alignment' => $data['header_alignment'],
+            'table_style' => $data['table_style'],
+            'body_font_size' => $data['body_font_size'],
+            'margin_top' => (int) $data['margin_top'],
+            'margin_bottom' => (int) $data['margin_bottom'],
+            'margin_left' => (int) $data['margin_left'],
+            'margin_right' => (int) $data['margin_right'],
+            'watermark_text' => $data['watermark_text'] ?? null,
+            'background_band' => (bool) ($data['background_band'] ?? false),
+            'show_logo' => (bool) ($data['show_logo'] ?? false),
+        ];
+
+        Setting::setValue('pdf_layout', json_encode($layout));
+        Cache::forget('app.settings');
+
+        return back()->with('ok', __('ui.settings.layout_saved'));
+    }
+
+    protected function decodeLayout($raw): array
+    {
+        $layout = json_decode($raw ?? '[]', true);
+
+        if (! is_array($layout)) {
+            return [];
+        }
+
+        return $layout;
     }
 }
