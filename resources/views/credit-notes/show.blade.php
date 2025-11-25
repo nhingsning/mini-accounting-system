@@ -119,6 +119,71 @@
             <div class="row"><span>Tax</span><strong>{{ number_format($note->tax ?? 0,2) }}</strong></div>
             <div class="row"><span>Total</span><strong>{{ number_format($note->total ?? 0,2) }}</strong></div>
           </div>
+
+          <div class="cn-card">
+            <div class="section-title"><i class="bi bi-check2-circle"></i> Approval</div>
+            <div class="info" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <span class="cn-badge" style="background:#eef2ff;color:#0f172a;border-color:#d5ddff">{{ ucfirst($note->approval_status ?? 'draft') }} @if($note->approval_step) · Step {{ $note->approval_step }} @endif</span>
+              <form action="{{ route('credit-notes.submit-approval', $note->number ?? $note->id) }}" method="POST">
+                @csrf
+                <button type="submit" class="cn-btn" style="padding:8px 12px">ส่งอนุมัติ</button>
+              </form>
+            </div>
+            @if(optional(auth()->user())->role && in_array(strtolower(auth()->user()->role), ['approver','admin','manager']))
+              <form action="{{ route('credit-notes.approve', $note->number ?? $note->id) }}" method="POST" class="mt-2" style="display:flex;gap:8px;flex-wrap:wrap">
+                @csrf
+                <input type="text" name="comment" class="form-control" placeholder="หมายเหตุ (ถ้ามี)" style="flex:1 1 150px">
+                <button type="submit" class="cn-btn primary" style="padding:8px 14px">Approve</button>
+              </form>
+              <form action="{{ route('credit-notes.reject', $note->number ?? $note->id) }}" method="POST" class="mt-2" style="display:flex;gap:8px;flex-wrap:wrap">
+                @csrf
+                <input type="text" name="comment" class="form-control" placeholder="เหตุผล" style="flex:1 1 150px">
+                <button type="submit" class="cn-btn" style="padding:8px 14px;color:#b42318;border-color:#f5c2c7">Reject</button>
+              </form>
+            @endif
+
+            <div class="section-title mt-3" style="font-size:14px"><i class="bi bi-list-check"></i> Steps</div>
+            <ul class="list-unstyled" style="margin:0;padding:0;display:flex;flex-direction:column;gap:8px">
+              @forelse($note->approvals as $approval)
+                <li style="border:1px solid var(--line);padding:10px;border-radius:12px">
+                  <div class="d-flex justify-content-between">
+                    <div><strong>Step {{ $approval->step }}</strong> · {{ ucfirst($approval->role) }}</div>
+                    <div class="text-muted" style="font-size:12px">{{ $approval->acted_at?->format('Y-m-d H:i') }}</div>
+                  </div>
+                  <div class="text-muted" style="font-size:13px">สถานะ: {{ ucfirst($approval->status) }} @if($approval->comment) · {{ $approval->comment }} @endif</div>
+                  @if($approval->user)
+                    <div class="text-muted" style="font-size:12px">โดย {{ $approval->user->name }}</div>
+                  @endif
+                </li>
+              @empty
+                <li class="text-muted">ยังไม่มีขั้นตอนอนุมัติ</li>
+              @endforelse
+            </ul>
+
+            <div class="section-title mt-3" style="font-size:14px"><i class="bi bi-clock-history"></i> Audit trail</div>
+            <ul class="list-unstyled" style="margin:0;padding:0;display:flex;flex-direction:column;gap:8px">
+              @forelse($note->auditLogs as $log)
+                <li style="border:1px dashed var(--line);padding:10px;border-radius:12px">
+                  <div class="d-flex justify-content-between">
+                    <div><strong>{{ ucfirst(str_replace('_',' ', $log->action)) }}</strong></div>
+                    <div class="text-muted" style="font-size:12px">{{ optional($log->created_at)->format('Y-m-d H:i') }}</div>
+                  </div>
+                  @if($log->user)
+                    <div class="text-muted" style="font-size:12px">โดย {{ $log->user->name }}</div>
+                  @endif
+                  @if($log->changes)
+                    <div class="text-muted" style="font-size:12px">
+                      @foreach($log->changes as $field => $change)
+                        <div>{{ ucfirst($field) }}: {{ data_get($change,'from') ?? '—' }} → {{ data_get($change,'to') ?? '—' }}</div>
+                      @endforeach
+                    </div>
+                  @endif
+                </li>
+              @empty
+                <li class="text-muted">ยังไม่มีบันทึก</li>
+              @endforelse
+            </ul>
+          </div>
         </div>
       </div>
     </div>

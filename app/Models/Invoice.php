@@ -4,10 +4,13 @@ namespace App\Models;
 
 use App\Models\Receipt;
 use App\Models\Payment;
+use App\Models\DocumentApproval;
+use App\Models\AuditLog;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Support\Facades\Schema;
 
 class Invoice extends Model
@@ -20,6 +23,7 @@ class Invoice extends Model
         'discount_percent', 'vat_enabled', 'tax_rate',
         'subtotal', 'tax', 'total',
         'status', 'currency',
+        'approval_status', 'approval_step',
     ];
 
     protected $casts = [
@@ -58,6 +62,16 @@ class Invoice extends Model
     public function payments(): HasMany
     {
         return $this->hasMany(Payment::class);
+    }
+
+    public function approvals(): MorphMany
+    {
+        return $this->morphMany(DocumentApproval::class, 'approvable');
+    }
+
+    public function auditLogs(): MorphMany
+    {
+        return $this->morphMany(AuditLog::class, 'auditable')->latest();
     }
 
     // ใช้เลขเอกสาร (หรือ id) สำหรับ route model binding

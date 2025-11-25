@@ -5,6 +5,9 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
+use App\Models\DocumentApproval;
+use App\Models\AuditLog;
 
 class CreditNote extends Model
 {
@@ -12,6 +15,7 @@ class CreditNote extends Model
         'number', 'invoice_id', 'invoice_number', 'type', 'status', 'issue_date',
         'customer_name', 'customer_address', 'customer_tax_id', 'customer_branch_type', 'customer_branch_code',
         'reason', 'subtotal', 'tax', 'total', 'currency',
+        'approval_status', 'approval_step',
     ];
 
     protected $casts = [
@@ -29,6 +33,16 @@ class CreditNote extends Model
     public function invoice(): BelongsTo
     {
         return $this->belongsTo(Invoice::class);
+    }
+
+    public function approvals(): MorphMany
+    {
+        return $this->morphMany(DocumentApproval::class, 'approvable');
+    }
+
+    public function auditLogs(): MorphMany
+    {
+        return $this->morphMany(AuditLog::class, 'auditable')->latest();
     }
 
     public function getRouteKeyName(): string

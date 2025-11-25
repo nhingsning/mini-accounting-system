@@ -241,6 +241,84 @@ body{background:var(--bg)}
       </div>
       <div class="fa-hint">Last updated: {{ optional($invoice->updated_at)->format('M d, Y H:i') }}</div>
 
+      <div class="fa-card fa-section" style="margin-top:14px">
+        <div class="fa-panel-title" style="margin-bottom:8px">Approval workflow</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+          <span class="fa-pill" style="background:#eef2ff;color:#0f172a;border-color:#d5ddff">
+            {{ ucfirst($invoice->approval_status ?? 'draft') }} @if($invoice->approval_step) · Step {{ $invoice->approval_step }} @endif
+          </span>
+          <form action="{{ route('invoices.submit-approval', $invoice->number ?? $invoice->id) }}" method="POST">
+            @csrf
+            <button type="submit" class="fa-btn ghost">Submit for approval</button>
+          </form>
+          @if(optional(auth()->user())->role && in_array(strtolower(auth()->user()->role), ['approver','admin','manager']))
+            <form action="{{ route('invoices.approve', $invoice->number ?? $invoice->id) }}" method="POST" style="display:flex;gap:6px;align-items:center">
+              @csrf
+              <input type="text" name="comment" placeholder="Comment (optional)" style="border:1px solid var(--line);border-radius:10px;padding:7px 9px;min-width:160px">
+              <button type="submit" class="fa-btn primary">Approve</button>
+            </form>
+            <form action="{{ route('invoices.reject', $invoice->number ?? $invoice->id) }}" method="POST" style="display:flex;gap:6px;align-items:center">
+              @csrf
+              <input type="text" name="comment" placeholder="Reason" style="border:1px solid var(--line);border-radius:10px;padding:7px 9px;min-width:160px">
+              <button type="submit" class="fa-btn light" style="color:#b42318;border-color:#f5c2c7">Reject</button>
+            </form>
+          @endif
+        </div>
+
+        <div style="font-size:13px;color:var(--muted);margin-bottom:6px">Steps</div>
+        <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px">
+          @forelse($invoice->approvals as $approval)
+            <li style="padding:10px;border:1px solid var(--line);border-radius:12px;display:flex;justify-content:space-between;align-items:center;gap:10px">
+              <div>
+                <div style="font-weight:800;color:var(--ink)">Step {{ $approval->step }} · {{ ucfirst($approval->role) }}</div>
+                <div style="color:var(--muted);font-size:13px">
+                  Status: {{ ucfirst($approval->status) }}
+                  @if($approval->comment)
+                    · {{ $approval->comment }}
+                  @endif
+                </div>
+              </div>
+              <div style="text-align:right;font-size:12px;color:var(--muted)">
+                @if($approval->user)
+                  {{ $approval->user->name }}
+                @endif
+                @if($approval->acted_at)
+                  <div>{{ $approval->acted_at->format('Y-m-d H:i') }}</div>
+                @endif
+              </div>
+            </li>
+          @empty
+            <li style="color:var(--muted);padding:8px 0">No approval steps yet</li>
+          @endforelse
+        </ul>
+
+        <div style="font-size:13px;color:var(--muted);margin:12px 0 6px">Audit log</div>
+        <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px">
+          @forelse($invoice->auditLogs as $log)
+            <li style="padding:10px;border:1px dashed var(--line);border-radius:12px;display:flex;justify-content:space-between;gap:10px">
+              <div>
+                <div style="font-weight:700;color:var(--ink)">{{ ucfirst(str_replace('_',' ', $log->action)) }}</div>
+                @if($log->changes)
+                  <div style="color:var(--muted);font-size:12px">
+                    @foreach($log->changes as $field => $change)
+                      <div>{{ ucfirst($field) }}: {{ data_get($change,'from') ?? '—' }} → {{ data_get($change,'to') ?? '—' }}</div>
+                    @endforeach
+                  </div>
+                @endif
+              </div>
+              <div style="text-align:right;font-size:12px;color:var(--muted)">
+                @if($log->user)
+                  <div>{{ $log->user->name }}</div>
+                @endif
+                <div>{{ optional($log->created_at)->format('Y-m-d H:i') }}</div>
+              </div>
+            </li>
+          @empty
+            <li style="color:var(--muted);padding:8px 0">No audit entries yet</li>
+          @endforelse
+        </ul>
+      </div>
+
       <div class="fa-card fa-section fa-payments">
         <div class="fa-panel-title">Payments & Reconciliation</div>
         <table>

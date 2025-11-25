@@ -87,6 +87,12 @@ Route::get('/quotations/{quotation}/pdf', [QuotationController::class, 'pdf'])
 
 Route::resource('invoices', InvoiceController::class)
     ->only(['index','create','store','show','edit','update','destroy']);
+Route::post('/invoices/{invoice}/submit-approval', [InvoiceController::class, 'submitForApproval'])
+    ->name('invoices.submit-approval');
+Route::post('/invoices/{invoice}/approve', [InvoiceController::class, 'approve'])
+    ->name('invoices.approve');
+Route::post('/invoices/{invoice}/reject', [InvoiceController::class, 'reject'])
+    ->name('invoices.reject');
 
 Route::post('/invoices/{invoice}/convert/receipt', [ReceiptController::class, 'fromInvoice'])
     ->name('invoices.convert.receipt');
@@ -124,6 +130,9 @@ Route::redirect('/quotes/{quotation}/convert', '/quotations/{quotation}/convert'
 
 Route::resource('receipts', ReceiptController::class)->only(['index','create','store','show','edit','update','destroy']);
 Route::resource('credit-notes', CreditNoteController::class)->only(['index','create','store','show','edit','update','destroy']);
+Route::post('/credit-notes/{credit_note}/submit-approval', [CreditNoteController::class, 'submitForApproval'])->name('credit-notes.submit-approval');
+Route::post('/credit-notes/{credit_note}/approve', [CreditNoteController::class, 'approve'])->name('credit-notes.approve');
+Route::post('/credit-notes/{credit_note}/reject', [CreditNoteController::class, 'reject'])->name('credit-notes.reject');
 Route::resource('payments', PaymentController::class)->only(['index','store','destroy']);
 Route::get('/bank-statements', [BankStatementController::class, 'index'])->name('bank-statements.index');
 Route::post('/bank-statements/import', [BankStatementController::class, 'import'])->name('bank-statements.import');
