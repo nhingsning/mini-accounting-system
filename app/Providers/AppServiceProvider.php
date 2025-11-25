@@ -4,9 +4,10 @@ namespace App\Providers;
 
 use App\Models\Setting;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\View;
+use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -33,6 +34,10 @@ class AppServiceProvider extends ServiceProvider
             $settings = Setting::allCached();
         } catch (\Throwable $e) {
             $settings = [];
+        }
+
+        if (! empty($settings['logo_path'])) {
+            $settings['logo_data_url'] = $this->logoDataUrl($settings['logo_path']);
         }
 
         $layoutRaw = $settings['pdf_layout'] ?? null;
@@ -173,5 +178,27 @@ class AppServiceProvider extends ServiceProvider
             'background_band' => true,
             'show_logo' => true,
         ];
+    }
+
+    protected function logoDataUrl(?string $path): ?string
+    {
+        if (! $path) {
+            return null;
+        }
+
+        try {
+            $disk = Storage::disk('public');
+            if (! $disk->exists($path)) {
+                return null;
+            }
+
+            $mime = $disk->mimeType($path) ?: 'image/png';
+            $data = base64_encode($disk->get($path));
+
+            return "data:{$mime};base64,{$data}";
+        } catch (\Throwable $e) {
+            report($e);
+            return null;
+        }
     }
 }

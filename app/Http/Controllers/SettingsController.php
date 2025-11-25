@@ -14,7 +14,11 @@ class SettingsController extends Controller
     {
         $settings = Setting::allCached();
         $logoPath = $settings['logo_path'] ?? null;
-        $logoUrl = $logoPath ? Storage::disk('public')->url($logoPath) : null;
+        $logoUrl = null;
+        if ($logoPath && Storage::disk('public')->exists($logoPath)) {
+            $mime = Storage::disk('public')->mimeType($logoPath) ?: 'image/png';
+            $logoUrl = 'data:'.$mime.';base64,'.base64_encode(Storage::disk('public')->get($logoPath));
+        }
 
         return view('settings.index', compact('settings', 'logoUrl'));
     }
