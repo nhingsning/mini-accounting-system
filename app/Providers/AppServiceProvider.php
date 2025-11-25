@@ -21,6 +21,8 @@ class AppServiceProvider extends ServiceProvider
             }
         }
 
+        $this->ensureSettingsTable();
+        $this->seedDefaultSettings();
         $this->shareAppSettings();
         $this->ensureSqliteCreditNoteTables();
     }
@@ -58,6 +60,46 @@ class AppServiceProvider extends ServiceProvider
 
         if (! Schema::hasTable('credit_note_items')) {
             $this->createCreditNoteItemsTable();
+        }
+    }
+
+    protected function ensureSettingsTable(): void
+    {
+        try {
+            if (Schema::hasTable('settings')) {
+                return;
+            }
+
+            Schema::create('settings', function ($table) {
+                $table->id();
+                $table->string('key')->unique();
+                $table->text('value')->nullable();
+                $table->timestamps();
+            });
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
+    protected function seedDefaultSettings(): void
+    {
+        try {
+            if (! Schema::hasTable('settings')) {
+                return;
+            }
+
+            $defaults = [
+                'primary_color' => '#31689E',
+                'default_language' => config('app.locale', 'en'),
+            ];
+
+            foreach ($defaults as $key => $value) {
+                if (Setting::get($key) === null) {
+                    Setting::setValue($key, $value);
+                }
+            }
+        } catch (\Throwable $e) {
+            report($e);
         }
     }
 
