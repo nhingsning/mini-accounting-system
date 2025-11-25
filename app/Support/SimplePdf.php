@@ -205,7 +205,7 @@ class SimplePdf
         $canvas->text($headerText, 44, 776, 10, 'F1', [1,1,1]);
 
         if (($layout['show_logo'] ?? true) && $logoDataUrl) {
-            $canvas->text('[Logo]', 520, 790, 10, 'F1', [1,1,1]);
+            $canvas->imageDataUrl($logoDataUrl, 480, 772, 90, 36);
         }
 
         $y = 740;
@@ -435,5 +435,47 @@ class SimplePdfCanvas
     public function content(): string
     {
         return $this->stream;
+    }
+
+    public function imageDataUrl(string $dataUrl, float $x, float $y, float $maxWidth = 100, float $maxHeight = 40): void
+    {
+        if (!str_starts_with($dataUrl, 'data:')) {
+            return;
+        }
+
+        $parts = explode(',', $dataUrl, 2);
+        if (count($parts) !== 2) {
+            return;
+        }
+
+        $binary = base64_decode($parts[1], true);
+        if ($binary === false) {
+            return;
+        }
+
+        $image = @imagecreatefromstring($binary);
+        if (!$image) {
+            return;
+        }
+
+        $origWidth = imagesx($image);
+        $origHeight = imagesy($image);
+
+        $scale = min($maxWidth / max($origWidth, 1), $maxHeight / max($origHeight, 1), 1.0);
+        $width = max(1, $origWidth * $scale);
+        $height = max(1, $origHeight * $scale);
+
+        ob_start();
+        imagejpeg($image, null, 90);
+        $jpeg = ob_get_clean();
+        imagedestroy($image);
+
+        if (!$jpeg) {
+            return;
+        }
+
+        $this->stream .= sprintf("q %.2f 0 0 %.2f %.2f %.2f cm\n", $width, $height, $x, $y);
+        $this->stream .= sprintf("BI /W %d /H %d /CS /RGB /BPC 8 /F [/DCTDecode] ID\n", (int) $width, (int) $height);
+        $this->stream .= $jpeg."\nEI\nQ\n";
     }
 }
