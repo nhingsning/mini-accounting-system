@@ -265,7 +265,7 @@ class SimplePdf
         ];
     }
 
-    private static function escapeText(string $text): string
+    public static function escapeText(string $text): string
     {
         return str_replace(['\\', '(', ')'], ['\\\\','\\(','\\)'], $text);
     }
