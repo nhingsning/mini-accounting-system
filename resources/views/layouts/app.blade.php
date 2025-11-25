@@ -31,6 +31,9 @@
     .topbar .search input{height:44px; border-radius:999px; padding-left:42px; background:#eef3fb; border:1px solid #e5edf9}
     .topbar .search i{position:absolute; left:14px; top:50%; transform:translateY(-50%); color:#90a3c0}
     .btn-soft{background:#eef3fb; color:#2c3e58; border:none}
+    .btn-brand{background:linear-gradient(135deg,var(--brand),var(--brand-2)); color:#fff; border:none; border-radius:12px; padding:10px 18px; font-weight:700; box-shadow:var(--shadow)}
+    .btn-brand:hover{filter:brightness(.98); color:#fff}
+    .btn-outline-ghost{border:1px solid #dce3ef; color:#2c3e58; background:#fff; border-radius:12px; padding:10px 16px; font-weight:600}
     .avatar{width:36px;height:36px;border-radius:50%; background:linear-gradient(135deg,var(--brand),var(--brand-2)); color:#fff; display:grid; place-items:center; font-weight:700}
 
     /* Panels */
