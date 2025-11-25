@@ -200,23 +200,26 @@ class SimplePdf
         $canvas = new SimplePdfCanvas();
         $canvas->setMargins(36, 36, max(26, (int)($layout['margin_bottom'] ?? 26)));
 
-        // Minimal header bar with title + subtext
-        $canvas->fillRect(36, 790, 523, 34, $primary);
-        $canvas->text($title, 44, 802, 17, 'F2', [1,1,1]);
-        $canvas->text($headerText, 44, 788, 10, 'F1', [1,1,1]);
+        // Clean header with breathing room so elements never overlap
+        $headerY = 778;
+        $headerHeight = 56;
+        $canvas->fillRect(36, $headerY, 523, $headerHeight, '#f7fbff');
+        $canvas->line(36, $headerY + $headerHeight - 10, 559, $headerY + $headerHeight - 10, $primary);
+        $canvas->text($title, 44, $headerY + $headerHeight - 12, 18, 'F2', self::rgb($primary));
+        $canvas->text($headerText, 44, $headerY + $headerHeight - 26, 10, 'F1', [0.25,0.3,0.36]);
 
         if (($layout['show_logo'] ?? true) && $logoDataUrl) {
-            // Slightly larger bounds to show full logo without clipping
-            $canvas->imageDataUrl($logoDataUrl, 435, 788, 140, 54);
+            // Larger bounds with aspect-fit scaling to keep the full logo visible
+            $canvas->imageDataUrl($logoDataUrl, 430, $headerY + 6, 150, 64);
         }
 
         // Document info panel
-        $y = 748;
+        $y = $headerY - 20;
         $infoHeight = 52 + (count($lines) * 14);
         $infoBottom = $y - $infoHeight;
-        $canvas->fillRect(36, $infoBottom, 248, $infoHeight + 8, '#f6f9fc');
-        $canvas->line(36, $y + 6, 284, $y + 6, $primary);
-        $canvas->text($title.' Info', 44, $y + 2, 11, 'F2', self::rgb($primary));
+        $canvas->fillRect(36, $infoBottom, 248, $infoHeight + 12, '#f6f9fc');
+        $canvas->line(36, $y + 8, 284, $y + 8, $primary);
+        $canvas->text($title.' Info', 44, $y + 4, 11, 'F2', self::rgb($primary));
         $ty = $y - 12;
         foreach ($lines as $line) {
             $canvas->text($line, 44, $ty, 10, 'F1', [0.16,0.2,0.28]);
@@ -236,9 +239,9 @@ class SimplePdf
             $panelTop = $y;
             $panelBottom = $panelTop - $panelHeight;
 
-            $canvas->fillRect(302, $panelBottom, 257, $panelHeight + 10, '#f1f5fb');
-            $canvas->line(302, $panelTop + 6, 559, $panelTop + 6, $primary);
-            $canvas->text('Company', 310, $panelTop + 2, 11, 'F2', self::rgb($primary));
+            $canvas->fillRect(302, $panelBottom, 257, $panelHeight + 14, '#f1f5fb');
+            $canvas->line(302, $panelTop + 8, 559, $panelTop + 8, $primary);
+            $canvas->text('Company', 310, $panelTop + 4, 11, 'F2', self::rgb($primary));
 
             $ty = $panelTop - 12;
             foreach ($companyLines as $cLine) {
@@ -246,23 +249,23 @@ class SimplePdf
                 $ty -= 12;
             }
 
-            $y = min($infoBottom, $panelBottom) - 12;
+            $y = min($infoBottom, $panelBottom) - 18;
         } else {
-            $y = $infoBottom - 12;
+            $y = $infoBottom - 18;
         }
 
         // Customer card
-        $canvas->fillRect(36, $y - 64, 523, 70, '#f9fbfd');
-        $canvas->line(36, $y + 4, 559, $y + 4, $primary);
-        $canvas->text('Customer', 44, $y + 2, 12, 'F2', self::rgb($primary));
-        $ty = $y - 12;
+        $canvas->fillRect(36, $y - 64, 523, 74, '#f9fbfd');
+        $canvas->line(36, $y + 6, 559, $y + 6, $primary);
+        $canvas->text('Customer', 44, $y + 4, 12, 'F2', self::rgb($primary));
+        $ty = $y - 10;
         foreach ($customer as $label => $value) {
             if ($value) {
                 $canvas->text($label.': '.$value, 44, $ty, 10);
                 $ty -= 14;
             }
         }
-        $y = $ty - 18;
+        $y = $ty - 22;
 
         if ($notes) {
             $canvas->text('Notes', 44, $y, 12, 'F2', self::rgb($primary));
@@ -285,21 +288,21 @@ class SimplePdf
 
         // Totals box with extra width for large amounts
         $totalsTop = $y;
-        $canvas->fillRect(299, $totalsTop - 78, 260, 96, '#eef3fb');
-        $canvas->line(299, $totalsTop + 4, 559, $totalsTop + 4, $primary);
-        $canvas->text('Totals', 307, $totalsTop + 2, 11, 'F2', self::rgb($primary));
+        $canvas->fillRect(292, $totalsTop - 90, 267, 110, '#eef3fb');
+        $canvas->line(292, $totalsTop + 6, 559, $totalsTop + 6, $primary);
+        $canvas->text('Totals', 300, $totalsTop + 2, 11, 'F2', self::rgb($primary));
 
-        $ty = $totalsTop - 14;
-        $canvas->text('Subtotal', 307, $ty, 10);
-        $canvas->text($summary['subtotal'], 540, $ty, 10);
-        $ty -= 16;
-        $canvas->text('Tax ('.$summary['tax_rate'].'%)', 307, $ty, 10);
-        $canvas->text($summary['tax'], 540, $ty, 10);
+        $ty = $totalsTop - 16;
+        $canvas->text('Subtotal', 300, $ty, 10);
+        $canvas->text($summary['subtotal'], 536, $ty, 10);
         $ty -= 18;
-        $canvas->text('Total', 307, $ty, 12, 'F2', self::rgb($primary));
-        $canvas->text($summary['total'], 540, $ty, 12, 'F2', [0,0,0]);
+        $canvas->text('Tax ('.$summary['tax_rate'].'%)', 300, $ty, 10);
+        $canvas->text($summary['tax'], 536, $ty, 10);
+        $ty -= 20;
+        $canvas->text('Total', 300, $ty, 13, 'F2', self::rgb($primary));
+        $canvas->text($summary['total'], 536, $ty, 13, 'F2', [0,0,0]);
 
-        $y -= 30;
+        $y -= 36;
         if ($notes) {
             $canvas->text('Remark: '.$notes, 40, $y, 10);
             $y -= 16;
