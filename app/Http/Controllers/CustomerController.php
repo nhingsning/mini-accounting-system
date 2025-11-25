@@ -9,8 +9,21 @@ class CustomerController extends Controller
 {
     public function index(Request $request)
     {
-        $customers = Customer::orderBy('name')->paginate(15);
-        return view('customers.index', compact('customers'));
+        $search = trim((string) $request->query('search', ''));
+
+        $customers = Customer::query()
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($w) use ($search) {
+                    $w->where('name', 'like', "%{$search}%")
+                        ->orWhere('tax_id', 'like', "%{$search}%")
+                        ->orWhere('tel', 'like', "%{$search}%");
+                });
+            })
+            ->orderBy('name')
+            ->paginate(15)
+            ->appends(['search' => $search]);
+
+        return view('customers.index', compact('customers', 'search'));
     }
 
     public function create()
