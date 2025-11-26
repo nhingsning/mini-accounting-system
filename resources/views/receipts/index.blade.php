@@ -54,12 +54,18 @@
                     <td>{{ $receipt->issue_date?->format('Y-m-d') ?? '—' }}</td>
                     <td class="text-end">{{ number_format($receipt->total,2) }}</td>
                     <td><span class="badge text-bg-light text-uppercase">{{ $statusLabels[strtolower($receipt->status ?? 'draft')] ?? ucfirst($receipt->status ?? 'draft') }}</span></td>
-                    <td class="text-end">
-                      <a href="{{ route('receipts.show', $receipt->number ?? $receipt->id) }}" class="btn btn-sm btn-light">View</a>
-                      <a href="{{ route('receipts.edit', $receipt->number ?? $receipt->id) }}" class="btn btn-sm btn-brand">Edit</a>
-                      <form action="{{ route('receipts.destroy', $receipt->number ?? $receipt->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete receipt?')">
+                    <td class="text-end" style="white-space:nowrap">
+                      <a href="{{ route('receipts.show', $receipt->number ?? $receipt->id) }}" class="btn btn-sm btn-light" title="View">
+                        <i class="bi bi-eye"></i>
+                      </a>
+                      <a href="{{ route('receipts.edit', $receipt->number ?? $receipt->id) }}" class="btn btn-sm btn-light" title="Edit">
+                        <i class="bi bi-pencil"></i>
+                      </a>
+                      <form action="{{ route('receipts.destroy', $receipt->number ?? $receipt->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete receipt {{ $receipt->number ?? ('RC#'.$receipt->id) }} ?')">
                         @csrf @method('DELETE')
-                        <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
+                        <button class="btn btn-sm btn-danger" type="submit" title="Delete">
+                          <i class="bi bi-trash"></i>
+                        </button>
                       </form>
                     </td>
                   </tr>
