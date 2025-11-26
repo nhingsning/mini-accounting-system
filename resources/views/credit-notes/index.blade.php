@@ -68,6 +68,11 @@
                   <td class="text-end d-flex justify-content-end gap-2">
                     <a href="{{ route('credit-notes.show', $note->number ?? $note->id) }}" class="btn btn-sm btn-outline-secondary">{{ __('ui.actions.view') }}</a>
                     <a href="{{ route('credit-notes.edit', $note->number ?? $note->id) }}" class="btn btn-sm btn-outline-primary">{{ __('ui.actions.edit') }}</a>
+                    <form action="{{ route('credit-notes.destroy', $note->number ?? $note->id) }}" method="POST" class="d-inline" onsubmit="return confirm('{{ __('ui.actions.confirm_delete') }}');">
+                      @csrf
+                      @method('DELETE')
+                      <button type="submit" class="btn btn-sm btn-outline-danger">{{ __('ui.actions.delete') }}</button>
+                    </form>
                   </td>
                 </tr>
               @empty

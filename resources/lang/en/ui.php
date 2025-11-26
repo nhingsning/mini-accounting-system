@@ -32,11 +32,13 @@ return [
         'create' => 'Create',
         'create_document' => 'Create Document',
         'edit' => 'Edit',
+        'delete' => 'Delete',
         'search' => 'Search',
         'back' => 'Back',
         'view' => 'View',
         'save' => 'Save',
         'save_changes' => 'Save Changes',
+        'confirm_delete' => 'Delete this document? This action cannot be undone.',
     ],
     'status' => [
         'draft' => 'Draft',
