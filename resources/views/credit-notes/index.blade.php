@@ -65,13 +65,19 @@
                   <td>{{ $note->customer_name ?? '—' }}</td>
                   <td>{{ ucfirst($note->status) }}</td>
                   <td class="text-end">{{ number_format($note->total ?? 0,2) }}</td>
-                  <td class="text-end d-flex justify-content-end gap-2">
-                    <a href="{{ route('credit-notes.show', $note->number ?? $note->id) }}" class="btn btn-sm btn-outline-secondary">{{ __('ui.actions.view') }}</a>
-                    <a href="{{ route('credit-notes.edit', $note->number ?? $note->id) }}" class="btn btn-sm btn-outline-primary">{{ __('ui.actions.edit') }}</a>
+                  <td class="text-end" style="white-space:nowrap">
+                    <a href="{{ route('credit-notes.show', $note->number ?? $note->id) }}" class="btn btn-sm btn-light" title="{{ __('ui.actions.view') }}">
+                      <i class="bi bi-eye"></i>
+                    </a>
+                    <a href="{{ route('credit-notes.edit', $note->number ?? $note->id) }}" class="btn btn-sm btn-light" title="{{ __('ui.actions.edit') }}">
+                      <i class="bi bi-pencil"></i>
+                    </a>
                     <form action="{{ route('credit-notes.destroy', $note->number ?? $note->id) }}" method="POST" class="d-inline" onsubmit="return confirm('{{ __('ui.actions.confirm_delete') }}');">
                       @csrf
                       @method('DELETE')
-                      <button type="submit" class="btn btn-sm btn-outline-danger">{{ __('ui.actions.delete') }}</button>
+                      <button type="submit" class="btn btn-sm btn-danger" title="{{ __('ui.actions.delete') }}">
+                        <i class="bi bi-trash"></i>
+                      </button>
                     </form>
                   </td>
                 </tr>
