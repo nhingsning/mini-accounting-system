@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models\Setting;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
@@ -36,15 +37,27 @@ class AppServiceProvider extends ServiceProvider
                 return;
             }
 
-            Schema::table('invoices', function ($table) {
-                if (! Schema::hasColumn('invoices', 'paid_total')) {
-                    $table->decimal('paid_total', 12, 2)->default(0)->after('total');
-                }
+            $isSqlite = config('database.default') === 'sqlite';
 
-                if (! Schema::hasColumn('invoices', 'outstanding_total')) {
-                    $table->decimal('outstanding_total', 12, 2)->default(0)->after('paid_total');
+            if (! Schema::hasColumn('invoices', 'paid_total')) {
+                if ($isSqlite) {
+                    DB::statement("ALTER TABLE invoices ADD COLUMN paid_total NUMERIC(12,2) DEFAULT 0");
+                } else {
+                    Schema::table('invoices', function ($table) {
+                        $table->decimal('paid_total', 12, 2)->default(0)->after('total');
+                    });
                 }
-            });
+            }
+
+            if (! Schema::hasColumn('invoices', 'outstanding_total')) {
+                if ($isSqlite) {
+                    DB::statement("ALTER TABLE invoices ADD COLUMN outstanding_total NUMERIC(12,2) DEFAULT 0");
+                } else {
+                    Schema::table('invoices', function ($table) {
+                        $table->decimal('outstanding_total', 12, 2)->default(0)->after('paid_total');
+                    });
+                }
+            }
         } catch (\Throwable $e) {
             report($e);
         }
