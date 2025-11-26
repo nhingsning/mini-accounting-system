@@ -65,7 +65,8 @@
                   <td>{{ $note->customer_name ?? '—' }}</td>
                   <td>{{ ucfirst($note->status) }}</td>
                   <td class="text-end">{{ number_format($note->total ?? 0,2) }}</td>
-                  <td class="text-end">
+                  <td class="text-end d-flex justify-content-end gap-2">
+                    <a href="{{ route('credit-notes.show', $note->number ?? $note->id) }}" class="btn btn-sm btn-outline-secondary">{{ __('ui.actions.view') }}</a>
                     <a href="{{ route('credit-notes.edit', $note->number ?? $note->id) }}" class="btn btn-sm btn-outline-primary">{{ __('ui.actions.edit') }}</a>
                   </td>
                 </tr>

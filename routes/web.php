@@ -148,6 +148,10 @@ Route::resource('debit-credit-note', CreditNoteController::class)
     ->only(['index','create','store','show','edit','update','destroy'])
     ->parameters(['debit-credit-note' => 'credit_note'])
     ->names('credit-notes');
+Route::redirect('/credit-notes', '/debit-credit-note')->name('credit-notes.legacy');
+Route::redirect('/credit-notes/create', '/debit-credit-note/create');
+Route::redirect('/credit-notes/{credit_note}', '/debit-credit-note/{credit_note}');
+Route::redirect('/credit-notes/{credit_note}/edit', '/debit-credit-note/{credit_note}/edit');
 Route::post('/debit-credit-note/{credit_note}/submit-approval', [CreditNoteController::class, 'submitForApproval'])->name('credit-notes.submit-approval');
 Route::post('/debit-credit-note/{credit_note}/approve', [CreditNoteController::class, 'approve'])->name('credit-notes.approve');
 Route::post('/debit-credit-note/{credit_note}/reject', [CreditNoteController::class, 'reject'])->name('credit-notes.reject');
