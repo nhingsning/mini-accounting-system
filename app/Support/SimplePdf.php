@@ -203,15 +203,15 @@ class SimplePdf
         $primaryRgb = self::rgb($primary);
         $muted = [0.16, 0.2, 0.28];
 
-        // Top header bar
+        // Top header bar with breathing room
         $headerTop = 792;
-        $headerHeight = 88;
-        $canvas->fillRect(36, $headerTop - $headerHeight, 523, $headerHeight, '#f6f9fc');
-        $canvas->line(36, $headerTop - $headerHeight + 10, 559, $headerTop - $headerHeight + 10, $primary);
+        $headerHeight = 96;
+        $canvas->fillRect(36, $headerTop - $headerHeight, 523, $headerHeight, '#f7faff');
+        $canvas->line(36, $headerTop - $headerHeight + 14, 559, $headerTop - $headerHeight + 14, $primary);
 
         // Logo + company block
         if (($layout['show_logo'] ?? true) && $logoDataUrl) {
-            $canvas->imageDataUrl($logoDataUrl, 44, $headerTop - 66, 140, 66);
+            $canvas->imageDataUrl($logoDataUrl, 48, $headerTop - 80, 150, 70);
         }
 
         $companyLines = array_values(array_filter([
@@ -221,34 +221,36 @@ class SimplePdf
             !empty($company['tax_id']) ? 'Tax ID: '.$company['tax_id'] : null,
         ]));
 
-        $cy = $headerTop - 18;
+        $cy = $headerTop - 16;
         foreach ($companyLines as $cLine) {
-            $canvas->text($cLine, 200, $cy, 10, 'F2', $muted);
+            $canvas->text($cLine, 210, $cy, 10, 'F2', $muted);
             $cy -= 12;
         }
 
         // Title box on the right
-        $canvas->fillRect(400, $headerTop - 68, 159, 56, '#e7effa');
-        $canvas->line(400, $headerTop - 46, 559, $headerTop - 46, $primary);
-        $canvas->text(strtoupper($title), 408, $headerTop - 36, 16, 'F2', $primaryRgb);
-        $canvas->text($headerText ?: ' ', 408, $headerTop - 52, 9, 'F1', $muted);
+        $canvas->fillRect(388, $headerTop - 74, 171, 62, '#e7effa');
+        $canvas->line(388, $headerTop - 50, 559, $headerTop - 50, $primary);
+        $canvas->text(strtoupper($title), 396, $headerTop - 38, 16, 'F2', $primaryRgb);
+        $canvas->text($headerText ?: ' ', 396, $headerTop - 56, 9, 'F1', $muted);
 
         // Document meta box beneath title
-        $metaTop = $headerTop - 82;
-        $metaHeight = 56 + (count($lines) * 12);
+        $metaTop = $headerTop - 88;
+        $metaHeight = 60 + (count($lines) * 13);
         $metaBottom = $metaTop - $metaHeight;
-        $canvas->fillRect(36, $metaBottom, 262, $metaHeight, '#eef3fb');
-        $canvas->line(36, $metaTop, 298, $metaTop, $primary);
-        $canvas->text($title.' Info', 44, $metaTop - 4, 11, 'F2', $primaryRgb);
-        $ty = $metaTop - 16;
+        $canvas->fillRect(36, $metaBottom, 300, $metaHeight, '#eef3fb');
+        $canvas->line(36, $metaTop, 336, $metaTop, $primary);
+        $canvas->text($title.' Info', 44, $metaTop - 6, 11, 'F2', $primaryRgb);
+        $ty = $metaTop - 18;
         foreach ($lines as $line) {
             $canvas->text($line, 44, $ty, 10, 'F1', $muted);
-            $ty -= 12;
+            $ty -= 13;
         }
 
         // Customer & office panel
-        $panelTop = $metaBottom - 8;
-        $panelHeight = 88;
+        $panelTop = $metaBottom - 10;
+        $customerLines = array_filter($customer);
+        $panelHeight = max(count($customerLines), count($companyLines)) * 13 + 34;
+        $panelHeight = max($panelHeight, 90);
         $canvas->fillRect(36, $panelTop - $panelHeight, 523, $panelHeight, '#f9fbfd');
         $canvas->line(36, $panelTop, 559, $panelTop, $primary);
 
@@ -270,7 +272,7 @@ class SimplePdf
             }
         }
 
-        $y = $panelTop - $panelHeight - 18;
+        $y = $panelTop - $panelHeight - 24;
 
         // Items table
         $canvas->tableHeader($y, $primary);
@@ -285,27 +287,27 @@ class SimplePdf
         $y -= 12;
 
         // Totals + remark block
-        $canvas->fillRect(312, $y - 96, 247, 110, '#eef3fb');
-        $canvas->line(312, $y + 8, 559, $y + 8, $primary);
-        $canvas->text('Totals', 320, $y + 2, 11, 'F2', $primaryRgb);
+        $canvas->fillRect(304, $y - 126, 255, 140, '#eef3fb');
+        $canvas->line(304, $y + 10, 559, $y + 10, $primary);
+        $canvas->text('Totals', 312, $y + 4, 11, 'F2', $primaryRgb);
 
-        $ty = $y - 14;
-        $canvas->text('Subtotal', 320, $ty, 10);
-        $canvas->text($summary['subtotal'], 536, $ty, 10);
-        $ty -= 16;
-        $canvas->text('Tax ('.$summary['tax_rate'].'%)', 320, $ty, 10);
-        $canvas->text($summary['tax'], 536, $ty, 10);
+        $ty = $y - 16;
+        $canvas->text('Subtotal', 312, $ty, 10);
+        $canvas->text($summary['subtotal'], 542, $ty, 10);
         $ty -= 18;
-        $canvas->text('Total', 320, $ty, 13, 'F2', $primaryRgb);
-        $canvas->text($summary['total'], 536, $ty, 13, 'F2', [0,0,0]);
+        $canvas->text('Tax ('.$summary['tax_rate'].'%)', 312, $ty, 10);
+        $canvas->text($summary['tax'], 542, $ty, 10);
+        $ty -= 20;
+        $canvas->text('Total', 312, $ty, 13, 'F2', $primaryRgb);
+        $canvas->text($summary['total'], 542, $ty, 13, 'F2', [0,0,0]);
 
         if ($notes) {
-            $canvas->fillRect(36, $y - 48, 258, 62, '#f6f9fc');
+            $canvas->fillRect(36, $y - 64, 258, 78, '#f6f9fc');
             $canvas->text('Remark', 44, $y + 2, 11, 'F2', $primaryRgb);
-            $canvas->text($notes, 44, $y - 12, 10, 'F1', $muted);
+            $canvas->text($notes, 44, $y - 14, 10, 'F1', $muted);
         }
 
-        $y = $y - 120;
+        $y = $y - 136;
 
         // Sign-off
         if ($preparedBy || $approvedBy) {
@@ -322,7 +324,7 @@ class SimplePdf
         }
 
         if ($watermark) {
-            $canvas->watermark($watermark, $primary);
+            $canvas->watermark($watermark, '#dbe4f0');
         }
 
         if ($footerText) {
