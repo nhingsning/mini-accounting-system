@@ -11,6 +11,10 @@ use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\QuotationController;
 use App\Http\Controllers\CustomersController;   // <-- เพิ่มอันนี้ (พหูพจน์) สำหรับ API
 use App\Http\Controllers\CustomerController;    // <-- อันนี้ (เอกพจน์) สำหรับ resource CRUD หน้าเว็บ
+use App\Http\Controllers\LocaleController;
+use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\BankStatementController;
+use App\Http\Controllers\SettingsController;
 
 /*
 |--------------------------------------------------------------------------
@@ -32,6 +36,8 @@ Route::prefix('api')->group(function () {
 Route::get('/auth', [AuthController::class, 'show'])
     ->name('auth.page')
     ->middleware('guest');
+
+Route::post('/locale', [LocaleController::class, 'update'])->name('locale.update');
 
 Route::get('/login', fn () => redirect()->route('auth.page'))
     ->name('login')
@@ -62,6 +68,19 @@ Route::get('/dashboard', [DashboardController::class, 'index'])
     ->middleware('auth')
     ->name('dashboard');
 
+Route::get('/settings', [SettingsController::class, 'index'])
+    ->middleware('auth')
+    ->name('settings.index');
+Route::post('/settings', [SettingsController::class, 'update'])
+    ->middleware('auth')
+    ->name('settings.update');
+Route::get('/settings/layout', [SettingsController::class, 'layout'])
+    ->middleware('auth')
+    ->name('settings.layout');
+Route::post('/settings/layout', [SettingsController::class, 'updateLayout'])
+    ->middleware('auth')
+    ->name('settings.layout.update');
+
 /*
 |--------------------------------------------------------------------------
 | Home
@@ -82,6 +101,13 @@ Route::get('/quotations/{quotation}/pdf', [QuotationController::class, 'pdf'])
 
 Route::resource('invoices', InvoiceController::class)
     ->only(['index','create','store','show','edit','update','destroy']);
+Route::post('/invoices/{invoice}/restore', [InvoiceController::class, 'restore'])->name('invoices.restore');
+Route::post('/invoices/{invoice}/submit-approval', [InvoiceController::class, 'submitForApproval'])
+    ->name('invoices.submit-approval');
+Route::post('/invoices/{invoice}/approve', [InvoiceController::class, 'approve'])
+    ->name('invoices.approve');
+Route::post('/invoices/{invoice}/reject', [InvoiceController::class, 'reject'])
+    ->name('invoices.reject');
 
 Route::post('/invoices/{invoice}/convert/receipt', [ReceiptController::class, 'fromInvoice'])
     ->name('invoices.convert.receipt');
@@ -97,6 +123,7 @@ Route::resource('po', PurchaseOrderController::class)
 
 Route::resource('quotations', QuotationController::class)
     ->only(['index','create','store','show','edit','update','destroy']);
+Route::post('/quotations/{quotation}/restore', [QuotationController::class, 'restore'])->name('quotations.restore');
 Route::post('/quotations/{quotation}/copy', [QuotationController::class, 'copy'])
     ->name('quotations.copy');
 Route::post('/quotations/{quotation}/convert/invoice', [QuotationController::class,'convertToInvoice'])->name('quotations.convert.invoice');
@@ -118,7 +145,24 @@ Route::redirect('/quotes/{quotation}/send', '/quotations/{quotation}/send')->nam
 Route::redirect('/quotes/{quotation}/convert', '/quotations/{quotation}/convert')->name('quotes.convert');
 
 Route::resource('receipts', ReceiptController::class)->only(['index','create','store','show','edit','update','destroy']);
-Route::resource('credit-notes', CreditNoteController::class)->only(['index','create','store','show','edit','update','destroy']);
+Route::post('/receipts/{receipt}/restore', [ReceiptController::class, 'restore'])->name('receipts.restore');
+Route::get('/receipts/{receiptKey}/pdf', [ReceiptController::class, 'pdf'])->name('receipts.pdf');
+Route::resource('debit-credit-note', CreditNoteController::class)
+    ->only(['index','create','store','show','edit','update','destroy'])
+    ->parameters(['debit-credit-note' => 'credit_note'])
+    ->names('credit-notes');
+Route::post('/debit-credit-note/{credit_note}/restore', [CreditNoteController::class, 'restore'])->name('credit-notes.restore');
+Route::redirect('/credit-notes', '/debit-credit-note')->name('credit-notes.legacy');
+Route::redirect('/credit-notes/create', '/debit-credit-note/create');
+Route::redirect('/credit-notes/{credit_note}', '/debit-credit-note/{credit_note}');
+Route::redirect('/credit-notes/{credit_note}/edit', '/debit-credit-note/{credit_note}/edit');
+Route::post('/debit-credit-note/{credit_note}/submit-approval', [CreditNoteController::class, 'submitForApproval'])->name('credit-notes.submit-approval');
+Route::post('/debit-credit-note/{credit_note}/approve', [CreditNoteController::class, 'approve'])->name('credit-notes.approve');
+Route::post('/debit-credit-note/{credit_note}/reject', [CreditNoteController::class, 'reject'])->name('credit-notes.reject');
+Route::resource('payments', PaymentController::class)->only(['index','store','destroy']);
+Route::get('/bank-statements', [BankStatementController::class, 'index'])->name('bank-statements.index');
+Route::post('/bank-statements/import', [BankStatementController::class, 'import'])->name('bank-statements.import');
+Route::post('/bank-statements/reconcile', [BankStatementController::class, 'reconcile'])->name('bank-statements.reconcile');
 
 Route::get('/invoices',                [InvoiceController::class, 'index'])->name('invoices.index');
 Route::get('/invoices/{invoiceKey}',   [InvoiceController::class, 'show'])->name('invoices.show');

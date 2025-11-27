@@ -4,10 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Receipt extends Model
 {
     use HasFactory;
+    use SoftDeletes;
 
     protected $fillable = [
         'number',
@@ -23,11 +25,13 @@ class Receipt extends Model
         'total',
         'status',
         'currency',
+        'cancelled_at', 'cancellation_reason', 'status_before_cancellation',
     ];
 
     protected $casts = [
         'issue_date' => 'date',
         'total' => 'decimal:2',
+        'cancelled_at' => 'datetime',
     ];
 
     public function invoice()

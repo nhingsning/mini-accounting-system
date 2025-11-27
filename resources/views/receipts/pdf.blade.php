@@ -7,8 +7,8 @@
     $footerText = $settings['footer_text'] ?? '';
     $logoPath = $settings['logo_path'] ?? null;
     $logoUrl = $logoPath ? Storage::disk('public')->url($logoPath) : null;
-    $title = __('ui.pdf.invoice.title');
-    $subtitle = __('ui.pdf.invoice.subtitle');
+    $title = __('ui.pdf.receipt.title');
+    $subtitle = __('ui.pdf.receipt.subtitle');
 
     $layout = is_array($settings['pdf_layout'] ?? null) ? $settings['pdf_layout'] : [];
     $marginTop = data_get($layout, 'margin_top', 30);
@@ -26,11 +26,10 @@
     $showLogo = (bool) data_get($layout, 'show_logo', true);
     $watermark = trim((string) data_get($layout, 'watermark_text', ''));
 
-    $items = collect($invoice->items ?? []);
+    $items = collect(optional($receipt->invoice)->items ?? []);
     $cur = config('currency.symbol','฿');
-    $issue = optional($invoice->issue_date ?? $invoice->created_at)->format('d M Y');
-    $due = optional($invoice->due_date)->format('d M Y');
-    $taxRate = (float)($invoice->tax_rate ?? 0);
+    $issue = optional($receipt->issue_date ?? $receipt->created_at)->format('d M Y');
+    $invoiceNumber = $receipt->invoice_number ?? optional($receipt->invoice)->number;
 
     $subtotal = 0.0;
     foreach ($items as $it) {
@@ -38,8 +37,9 @@
       $unit = (float) data_get($it, 'unit_price', data_get($it,'price',0));
       $subtotal += ($qty * $unit);
     }
-    $tax  = $invoice->tax ?? ($subtotal * ($taxRate/100));
-    $total= $invoice->total ?? ($subtotal + $tax);
+    $taxRate = 0;
+    $tax  = 0;
+    $total= $receipt->total ?? $subtotal;
 
     $secondary = $primary;
     $hex = ltrim($primary, '#');
@@ -97,9 +97,8 @@
     </div>
     <div class="meta-block" style="text-align:right; font-size:12px; color:#1f2937; line-height:1.6;">
       <div><strong>{{ __('ui.pdf.labels.date') }}:</strong> {{ $issue ?: '-' }}</div>
-      <div><strong>{{ __('ui.pdf.labels.invoice_no') }}:</strong> {{ $invoice->number ?? '-' }}</div>
-      <div><strong>{{ __('ui.pdf.labels.quotation_no') }}:</strong> {{ $invoice->quotation_number ?? ($invoice->quotation->number ?? '—') }}</div>
-      <div><strong>{{ __('ui.pdf.labels.due_date') }}:</strong> {{ $due ?: '-' }}</div>
+      <div><strong>{{ __('ui.pdf.labels.receipt_no') }}:</strong> {{ $receipt->number ?? '-' }}</div>
+      <div><strong>{{ __('ui.pdf.labels.invoice_no') }}:</strong> {{ $invoiceNumber ?? '—' }}</div>
     </div>
   </header>
 
@@ -113,22 +112,22 @@
   <div class="grid">
     <div class="card">
       <div class="section-title">{{ __('ui.pdf.labels.customer') }}</div>
-      <div style="font-weight:700; font-size:13px;">{{ $invoice->customer_name ?? '-' }}</div>
+      <div style="font-weight:700; font-size:13px;">{{ $receipt->customer_name ?? '-' }}</div>
       <div class="muted" style="margin-top:6px; line-height:1.6; white-space:pre-wrap;">
-        {{ $invoice->customer_address ?? '—' }}
+        {{ $receipt->customer_address ?? '—' }}
       </div>
-      @if($invoice->customer_tax_id)
-        <div class="muted" style="margin-top:6px;">{{ __('ui.pdf.labels.tax_id') }}: {{ $invoice->customer_tax_id }}</div>
+      @if($receipt->customer_tax_id)
+        <div class="muted" style="margin-top:6px;">{{ __('ui.pdf.labels.tax_id') }}: {{ $receipt->customer_tax_id }}</div>
       @endif
-      @if($invoice->customer_branch_code)
-        <div class="muted">{{ __('ui.pdf.labels.branch') }}: {{ $invoice->customer_branch_code }}</div>
+      @if($receipt->customer_branch_code)
+        <div class="muted">{{ __('ui.pdf.labels.branch') }}: {{ $receipt->customer_branch_code }}</div>
       @endif
     </div>
 
     <div class="card">
       <div class="section-title">{{ __('ui.pdf.labels.notes') }}</div>
       <div style="min-height:68px; font-size:12px; line-height:1.6; white-space:pre-wrap;">
-        {{ $invoice->notes ?? '—' }}
+        {{ $receipt->notes ?? '—' }}
       </div>
     </div>
   </div>
@@ -168,9 +167,7 @@
 
   <div style="display:flex; justify-content:flex-end; margin-top:12px;">
     <div class="totals">
-      <div class="row"><span>{{ __('ui.pdf.labels.subtotal') }}:</span><strong>{{ $cur }}{{ number_format($subtotal,2) }}</strong></div>
-      <div class="row"><span>{{ __('ui.pdf.labels.tax') }} ({{ number_format($taxRate,2) }}%):</span><strong>{{ $cur }}{{ number_format($tax,2) }}</strong></div>
-      <div class="row" style="font-weight:800; background: {{ $primary }}; color:#fff;"><span>{{ __('ui.pdf.labels.total') }}:</span><span>{{ $cur }}{{ number_format($total,2) }}</span></div>
+      <div class="row"><span>{{ __('ui.pdf.labels.total_received') }}:</span><strong>{{ $cur }}{{ number_format($total,2) }}</strong></div>
     </div>
   </div>
 

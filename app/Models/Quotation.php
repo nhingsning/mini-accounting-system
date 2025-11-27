@@ -7,9 +7,12 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Support\Carbon;
 use App\Models\QuotationAttachment;
 use App\Models\QuotationLog;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Quotation extends Model
 {
+    use SoftDeletes;
+
     protected $fillable = [
         'number','customer_id','customer_name','customer_address','customer_tax_id',
         'customer_branch_type','customer_branch_code','salesperson','reference',
@@ -18,6 +21,7 @@ class Quotation extends Model
         'contact_name','contact_email','contact_phone',
         'subtotal','tax','total',
         'period','month_seq',
+        'cancelled_at', 'cancellation_reason', 'status_before_cancellation',
     ];
 
     // ใช้ 'date' พอ (ไม่ต้อง datetime) เพื่อให้ format('Y-m') ทำงานเนียน
@@ -32,6 +36,7 @@ class Quotation extends Model
         'tax'         => 'float',
         'total'       => 'float',
         'month_seq'   => 'integer',
+        'cancelled_at' => 'datetime',
     ];
 
     /* ===================== Relations ===================== */

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="{{ str_replace('_','-',app()->getLocale()) }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -10,8 +10,19 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
 
   {{-- === Universal CSS (INLINE เพื่อกันพังแม้โหลดไฟล์ไม่ได้) === --}}
+  @php
+    $primary = $appSettings['primary_color'] ?? '#31689E';
+    $hex = ltrim($primary, '#');
+    $brand2 = '#6f9ad0';
+    if (strlen($hex) === 6) {
+        $r = min(255, hexdec(substr($hex,0,2)) + 28);
+        $g = min(255, hexdec(substr($hex,2,2)) + 28);
+        $b = min(255, hexdec(substr($hex,4,2)) + 28);
+        $brand2 = sprintf('#%02X%02X%02X', $r, $g, $b);
+    }
+  @endphp
   <style>
-    :root{ --brand:#2B4A72; --brand-2:#6f9ad0; --bg:#f4f6fb; --card:#fff; --muted:#6b7280;
+    :root{ --brand:{{ $primary }}; --brand-2:{{ $brand2 }}; --bg:#f4f6fb; --card:#fff; --muted:#6b7280;
            --shadow:0 10px 24px rgba(0,0,0,.06); --radius:16px }
     *{box-sizing:border-box} html{scroll-behavior:smooth}
     body{background:var(--bg); font-family:Inter,system-ui,Roboto,Arial; color:#1f2937}
@@ -31,6 +42,9 @@
     .topbar .search input{height:44px; border-radius:999px; padding-left:42px; background:#eef3fb; border:1px solid #e5edf9}
     .topbar .search i{position:absolute; left:14px; top:50%; transform:translateY(-50%); color:#90a3c0}
     .btn-soft{background:#eef3fb; color:#2c3e58; border:none}
+    .btn-brand{background:linear-gradient(135deg,var(--brand),var(--brand-2)); color:#fff; border:none; border-radius:12px; padding:10px 18px; font-weight:700; box-shadow:var(--shadow)}
+    .btn-brand:hover{filter:brightness(.98); color:#fff}
+    .btn-outline-ghost{border:1px solid #dce3ef; color:#2c3e58; background:#fff; border-radius:12px; padding:10px 16px; font-weight:600}
     .avatar{width:36px;height:36px;border-radius:50%; background:linear-gradient(135deg,var(--brand),var(--brand-2)); color:#fff; display:grid; place-items:center; font-weight:700}
 
     /* Panels */
@@ -59,11 +73,21 @@
     /* Chart containers */
     .chart-container{position:relative; width:100%}
     .chart-container canvas{width:100%!important; height:auto!important}
+
+    /* Language switcher */
+    .language-switcher{position:fixed; bottom:18px; right:18px; z-index:1200; display:flex; flex-direction:column; align-items:flex-end; gap:8px}
+    .language-switcher .lang-toggle{display:inline-flex; align-items:center; gap:8px; border:none; background:linear-gradient(135deg,var(--brand),var(--brand-2)); color:#fff; padding:10px 14px; border-radius:999px; box-shadow:var(--shadow); font-weight:600}
+    .language-switcher .lang-label{white-space:nowrap; font-size:14px}
+    .language-switcher .lang-panel{position:absolute; bottom:52px; right:0; width:220px; background:#fff; border:1px solid #e5e7eb; border-radius:14px; padding:12px; box-shadow:var(--shadow); opacity:0; pointer-events:none; transform:translateY(8px); transition:all .15s ease}
+    .language-switcher.open .lang-panel{opacity:1; pointer-events:auto; transform:translateY(0)}
+    .language-switcher select{border:1px solid #dce3ef; border-radius:10px; padding:6px 8px; font-size:13px; background:#f8fafc}
+    @media(max-width:640px){ .language-switcher{bottom:12px; right:12px} }
   </style>
 
   @stack('head')
 </head>
 <body>
+  @include('partials.language-switcher')
   @yield('body')
 @yield('content')
 

@@ -63,6 +63,7 @@ public function logout(Request $request)
         $user = User::create([
             'name'     => $data['name'],
             'email'    => $data['email'],
+            'role'     => 'drafter',
             'password' => bcrypt($data['password']),
         ]);
 

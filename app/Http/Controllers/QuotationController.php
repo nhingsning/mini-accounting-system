@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use App\Support\SimplePdf;
 use App\Services\InvoiceFromQuotation;
+use App\Support\PeriodLock;
 use Dompdf\Dompdf;
 use Dompdf\Options;
 
@@ -147,6 +148,8 @@ class QuotationController extends Controller
             'attachments'           => ['sometimes','array'],
             'attachments.*'         => ['file','max:12288','mimes:pdf,jpeg,jpg,png,webp,doc,docx'],
         ]);
+
+        PeriodLock::assertOpen($data['issue_date'] ?? now(), 'quotation');
 
         $payload = [
             'customer_name' => $data['customer_name'],
@@ -410,6 +413,8 @@ class QuotationController extends Controller
             'attachments.*'         => ['file','max:12288','mimes:pdf,jpeg,jpg,png,webp,doc,docx'],
         ]);
 
+        PeriodLock::assertOpen($data['issue_date'] ?? $quotation->issue_date, 'quotation');
+
         DB::transaction(function () use ($quotation, $request, $data) {
             $payload = [
                 'customer_name' => $data['customer_name'],
@@ -513,17 +518,49 @@ class QuotationController extends Controller
             ->with('ok','Updated.');
     }
 
-    public function destroy(Quotation $quotation)
+    public function destroy(Request $request, Quotation $quotation)
     {
+        PeriodLock::assertOpen($quotation->issue_date, 'quotation');
+
+        $reason = $request->input('reason') ?: __('ui.default_cancel_reason');
+
+        if (Schema::hasColumn('quotations', 'status_before_cancellation') && $quotation->status !== 'cancelled') {
+            $quotation->status_before_cancellation = $quotation->status;
+        }
+
+        $quotation->forceFill([
+            'status' => 'cancelled',
+            'cancellation_reason' => $reason,
+            'cancelled_at' => now(),
+        ])->saveQuietly();
+
+        $quotation->delete();
+
         $this->logAction($quotation, 'deleted', 'Deleted quotation '.$quotation->number);
-        DB::transaction(function () use ($quotation) {
-            if (method_exists($quotation,'items')) {
-                $quotation->items()->delete();
-            }
-            $quotation->delete();
-        });
 
         return back()->with('ok','Deleted.');
+    }
+
+    public function restore(string $key)
+    {
+        $quoteQuery = Quotation::query()->withTrashed();
+        $quotation = ctype_digit($key)
+            ? $quoteQuery->whereKey($key)->first()
+            : $quoteQuery->where('number', $key)->first();
+
+        abort_unless($quotation, 404, 'Quotation not found');
+        PeriodLock::assertOpen($quotation->issue_date, 'quotation');
+
+        $quotation->restore();
+
+        if ($quotation->status_before_cancellation) {
+            $quotation->forceFill(['status' => $quotation->status_before_cancellation]);
+        }
+
+        $quotation->forceFill(['cancelled_at' => null])->saveQuietly();
+
+        return redirect()->route('quotations.show', $quotation->number ?? $quotation->id)
+            ->with('ok', __('ui.restored'));
     }
 
     /** ----------------- Helpers ----------------- */
