@@ -11,10 +11,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Schema;
 
 class Invoice extends Model
 {
+    use SoftDeletes;
+
     protected $fillable = [
         'number', 'quotation_id', 'quotation_number',
         'customer_id', 'customer_name', 'customer_address', 'customer_tax_id',
@@ -24,6 +27,7 @@ class Invoice extends Model
         'subtotal', 'tax', 'total',
         'status', 'currency',
         'approval_status', 'approval_step',
+        'cancelled_at', 'cancellation_reason', 'status_before_cancellation',
     ];
 
     protected $casts = [
@@ -37,6 +41,7 @@ class Invoice extends Model
         'total'            => 'float',
         'paid_total'       => 'float',
         'outstanding_total'=> 'float',
+        'cancelled_at'     => 'datetime',
     ];
 
     public function items(): HasMany

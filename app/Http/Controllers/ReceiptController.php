@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Invoice;
 use App\Models\Receipt;
+use App\Support\PeriodLock;
 use Dompdf\Dompdf;
 use Dompdf\Options;
 use Illuminate\Http\Request;
@@ -18,8 +19,8 @@ class ReceiptController extends Controller
         $this->ensureReceiptsTable();
 
         $receipt = ctype_digit($key)
-            ? Receipt::find($key)
-            : Receipt::where('number', $key)->first();
+            ? Receipt::withTrashed()->find($key)
+            : Receipt::withTrashed()->where('number', $key)->first();
 
         abort_unless($receipt, 404, 'Receipt not found');
         return $receipt;
@@ -75,6 +76,8 @@ class ReceiptController extends Controller
             'status' => ['nullable', Rule::in(['draft', 'issued', 'cancelled', 'void'])],
             'currency' => ['nullable', 'string', 'max:10'],
         ]);
+
+        PeriodLock::assertOpen($data['issue_date'] ?? now(), 'receipt');
 
         $receipt = Receipt::create($data);
         $slug = $receipt->number ?: $receipt->id;
@@ -163,20 +166,60 @@ class ReceiptController extends Controller
             'currency' => ['nullable', 'string', 'max:10'],
         ]);
 
+        PeriodLock::assertOpen($data['issue_date'] ?? $receipt->issue_date, 'receipt');
+
         $receipt->update($data);
         $slug = $receipt->number ?: $receipt->id;
 
         return redirect()->route('receipts.show', $slug)->with('ok', 'Receipt updated');
     }
 
-    public function destroy(string $key)
+    public function destroy(Request $request, string $key)
     {
         $this->ensureReceiptsTable();
 
         $receipt = $this->findByKey($key);
+        PeriodLock::assertOpen($receipt->issue_date, 'receipt');
+
+        $reason = $request->input('reason') ?: __('ui.default_cancel_reason');
+
+        if (Schema::hasColumn('receipts', 'status_before_cancellation') && $receipt->status !== 'cancelled') {
+            $receipt->status_before_cancellation = $receipt->status;
+        }
+
+        $receipt->forceFill([
+            'status' => 'cancelled',
+            'cancellation_reason' => $reason,
+            'cancelled_at' => now(),
+        ])->saveQuietly();
+
         $receipt->delete();
 
         return redirect()->route('receipts.index')->with('ok', 'Receipt deleted');
+    }
+
+    public function restore(string $key)
+    {
+        $this->ensureReceiptsTable();
+
+        $receiptQuery = Receipt::query()->withTrashed();
+        $receipt = ctype_digit($key)
+            ? $receiptQuery->whereKey($key)->first()
+            : $receiptQuery->where('number', $key)->first();
+
+        abort_unless($receipt, 404, 'Receipt not found');
+        PeriodLock::assertOpen($receipt->issue_date, 'receipt');
+
+        $receipt->restore();
+
+        if ($receipt->status_before_cancellation) {
+            $receipt->forceFill(['status' => $receipt->status_before_cancellation]);
+        }
+
+        $receipt->forceFill(['cancelled_at' => null])->saveQuietly();
+
+        return redirect()->route('receipts.show', $receipt->number ?: $receipt->id)
+            ->with('ok', __('ui.restored'));
     }
 
     public function fromInvoice(string $invoiceKey)

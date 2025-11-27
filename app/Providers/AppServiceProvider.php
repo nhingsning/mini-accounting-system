@@ -28,6 +28,63 @@ class AppServiceProvider extends ServiceProvider
         $this->shareAppSettings();
         $this->ensureInvoicePaymentColumns();
         $this->ensureSqliteCreditNoteTables();
+        $this->ensureDocumentIntegrityColumns();
+    }
+
+    protected function ensureDocumentIntegrityColumns(): void
+    {
+        $tables = ['invoices', 'credit_notes', 'receipts', 'quotations'];
+        $isSqlite = config('database.default') === 'sqlite';
+
+        foreach ($tables as $table) {
+            if (! Schema::hasTable($table)) {
+                continue;
+            }
+
+            try {
+                if (! Schema::hasColumn($table, 'deleted_at')) {
+                    if ($isSqlite) {
+                        DB::statement("ALTER TABLE {$table} ADD COLUMN deleted_at TEXT NULL");
+                    } else {
+                        Schema::table($table, function ($t) {
+                            $t->softDeletes();
+                        });
+                    }
+                }
+
+                if (! Schema::hasColumn($table, 'cancelled_at')) {
+                    if ($isSqlite) {
+                        DB::statement("ALTER TABLE {$table} ADD COLUMN cancelled_at TEXT NULL");
+                    } else {
+                        Schema::table($table, function ($t) {
+                            $t->timestamp('cancelled_at')->nullable();
+                        });
+                    }
+                }
+
+                if (! Schema::hasColumn($table, 'cancellation_reason')) {
+                    if ($isSqlite) {
+                        DB::statement("ALTER TABLE {$table} ADD COLUMN cancellation_reason TEXT NULL");
+                    } else {
+                        Schema::table($table, function ($t) {
+                            $t->text('cancellation_reason')->nullable();
+                        });
+                    }
+                }
+
+                if (! Schema::hasColumn($table, 'status_before_cancellation')) {
+                    if ($isSqlite) {
+                        DB::statement("ALTER TABLE {$table} ADD COLUMN status_before_cancellation TEXT NULL");
+                    } else {
+                        Schema::table($table, function ($t) {
+                            $t->string('status_before_cancellation')->nullable();
+                        });
+                    }
+                }
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
     }
 
     protected function ensureInvoicePaymentColumns(): void
@@ -143,6 +200,7 @@ class AppServiceProvider extends ServiceProvider
                 'primary_color' => '#31689E',
                 'default_language' => config('app.locale', 'en'),
                 'pdf_layout' => json_encode($this->defaultPdfLayout()),
+                'closed_periods' => json_encode([]),
             ];
 
             foreach ($defaults as $key => $value) {

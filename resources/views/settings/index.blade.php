@@ -111,6 +111,16 @@
               <textarea class="form-control" name="company_address" rows="3" placeholder="{{ __('ui.settings.company_address_placeholder') }}">{{ old('company_address', $appSettings['company_address'] ?? '') }}</textarea>
               <div class="form-text">{{ __('ui.settings.company_address_helper') }}</div>
             </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">{{ __('ui.settings.closed_periods_title') }}</label>
+              @php
+                $closedPeriods = $settings['closed_periods'] ?? '[]';
+                $closedPeriods = is_string($closedPeriods) ? json_decode($closedPeriods, true) : (array) $closedPeriods;
+                $closedValue = old('closed_periods', implode(',', $closedPeriods ?? []));
+              @endphp
+              <input type="text" class="form-control" name="closed_periods" value="{{ $closedValue }}" placeholder="{{ __('ui.settings.closed_periods_placeholder') }}">
+              <div class="form-text">{{ __('ui.settings.closed_periods_helper') }}</div>
+            </div>
           </div>
         </div>
 

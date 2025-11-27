@@ -8,14 +8,18 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use App\Models\DocumentApproval;
 use App\Models\AuditLog;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class CreditNote extends Model
 {
+    use SoftDeletes;
+
     protected $fillable = [
         'number', 'invoice_id', 'invoice_number', 'type', 'status', 'issue_date',
         'customer_name', 'customer_address', 'customer_tax_id', 'customer_branch_type', 'customer_branch_code',
         'reason', 'subtotal', 'tax', 'total', 'currency',
         'approval_status', 'approval_step',
+        'cancelled_at', 'cancellation_reason', 'status_before_cancellation',
     ];
 
     protected $casts = [
@@ -23,6 +27,7 @@ class CreditNote extends Model
         'subtotal'   => 'float',
         'tax'        => 'float',
         'total'      => 'float',
+        'cancelled_at' => 'datetime',
     ];
 
     public function items(): HasMany

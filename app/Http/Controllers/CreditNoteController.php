@@ -6,6 +6,7 @@ use App\Models\CreditNote;
 use App\Models\CreditNoteItem;
 use App\Models\Invoice;
 use App\Services\AuditLogger;
+use App\Support\PeriodLock;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -68,6 +69,8 @@ class CreditNoteController extends Controller
         $data['subtotal'] = $data['subtotal'] ?? $totals['subtotal'];
         $data['tax'] = $data['tax'] ?? $totals['tax'];
         $data['total'] = $data['total'] ?? $totals['total'];
+
+        PeriodLock::assertOpen($data['issue_date'] ?? now(), 'credit note');
 
         $data = $this->filterPersistableColumns($data);
 
@@ -172,6 +175,8 @@ class CreditNoteController extends Controller
         $data['tax'] = $data['tax'] ?? $totals['tax'];
         $data['total'] = $data['total'] ?? $totals['total'];
 
+        PeriodLock::assertOpen($data['issue_date'] ?? $note->issue_date, 'credit note');
+
         $data = $this->filterPersistableColumns($data);
 
         DB::transaction(function () use ($note, $data, $items) {
@@ -213,12 +218,48 @@ class CreditNoteController extends Controller
             ->get();
     }
 
-    public function destroy(string $key)
+    public function destroy(Request $request, string $key)
     {
         $note = $this->findNote($key);
+        PeriodLock::assertOpen($note->issue_date, 'credit note');
+
+        $reason = $request->input('reason') ?: __('ui.default_cancel_reason');
+
+        if (Schema::hasColumn('credit_notes', 'status_before_cancellation') && $note->status !== 'cancelled') {
+            $note->status_before_cancellation = $note->status;
+        }
+
+        $note->forceFill([
+            'status' => 'cancelled',
+            'cancellation_reason' => $reason,
+            'cancelled_at' => now(),
+        ])->saveQuietly();
+
         $note->delete();
 
         return redirect()->route('credit-notes.index')->with('ok', 'ลบข้อมูลแล้ว');
+    }
+
+    public function restore(string $key)
+    {
+        $noteQuery = CreditNote::query()->withTrashed();
+        $note = ctype_digit($key)
+            ? $noteQuery->whereKey($key)->first()
+            : $noteQuery->where('number', $key)->first();
+
+        abort_unless($note, 404, 'Credit/Debit Note not found');
+        PeriodLock::assertOpen($note->issue_date, 'credit note');
+
+        $note->restore();
+
+        if ($note->status_before_cancellation) {
+            $note->forceFill(['status' => $note->status_before_cancellation]);
+        }
+
+        $note->forceFill(['cancelled_at' => null])->saveQuietly();
+
+        return redirect()->route('credit-notes.show', $note->number ?? $note->id)
+            ->with('ok', __('ui.restored'));
     }
 
     public function submitForApproval(Request $request, string $key)
@@ -471,9 +512,10 @@ class CreditNoteController extends Controller
 
     private function findNote(string $key): CreditNote
     {
+        $noteQuery = CreditNote::query()->withTrashed();
         $note = ctype_digit($key)
-            ? CreditNote::whereKey($key)->first()
-            : CreditNote::where('number', $key)->first();
+            ? $noteQuery->whereKey($key)->first()
+            : $noteQuery->where('number', $key)->first();
 
         abort_unless($note, 404, 'Credit/Debit Note not found');
         return $note;

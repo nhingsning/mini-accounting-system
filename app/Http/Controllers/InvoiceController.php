@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Invoice;
 use App\Services\AuditLogger;
 use App\Support\SimplePdf;
+use App\Support\PeriodLock;
 use Dompdf\Dompdf;
 use Dompdf\Options;
 use Illuminate\Http\Request;
@@ -41,7 +42,7 @@ class InvoiceController extends Controller
     // ===== Helpers =====
     private function findByKey(string $key): Invoice
     {
-        $invoiceQuery = Invoice::query()->onlyInvoices();
+        $invoiceQuery = Invoice::query()->onlyInvoices()->withTrashed();
 
         $invoice = ctype_digit($key)
             ? $invoiceQuery->whereKey($key)->first()
@@ -86,6 +87,7 @@ class InvoiceController extends Controller
         $data['vat_enabled'] = $request->boolean('vat_enabled');
         $data['status'] = $this->normalizeStatus($data['status'] ?? '');
 
+        PeriodLock::assertOpen($data['issue_date'] ?? now(), 'invoice');
         $data = $this->filterPersistableColumns($data);
 
         $invoice = DB::transaction(function () use ($data, $request) {
@@ -225,6 +227,7 @@ class InvoiceController extends Controller
     public function update(Request $request, string $key)
     {
         $invoice = $this->findByKey($key);
+        PeriodLock::assertOpen($request->input('issue_date', $invoice->issue_date), 'invoice');
         $before = $invoice->only(['status', 'total', 'approval_status', 'approval_step']);
 
         $data = $request->validate([
@@ -276,12 +279,48 @@ class InvoiceController extends Controller
     }
 
     // ===== Delete action =====
-    public function destroy(string $key)
+    public function destroy(Request $request, string $key)
     {
         $invoice = $this->findByKey($key);
+        PeriodLock::assertOpen($invoice->issue_date, 'invoice');
+
+        $reason = $request->input('reason') ?: __('ui.default_cancel_reason');
+
+        if (Schema::hasColumn('invoices', 'status_before_cancellation') && $invoice->status !== 'cancelled') {
+            $invoice->status_before_cancellation = $invoice->status;
+        }
+
+        $invoice->forceFill([
+            'status' => 'cancelled',
+            'cancellation_reason' => $reason,
+            'cancelled_at' => now(),
+        ])->saveQuietly();
+
         $invoice->delete();
 
         return redirect()->route('invoices.index')->with('ok', 'Deleted');
+    }
+
+    public function restore(string $key)
+    {
+        $invoiceQuery = Invoice::query()->onlyInvoices()->withTrashed();
+        $invoice = ctype_digit($key)
+            ? $invoiceQuery->whereKey($key)->first()
+            : $invoiceQuery->where('number', $key)->first();
+
+        abort_unless($invoice, 404, 'Invoice not found');
+        PeriodLock::assertOpen($invoice->issue_date, 'invoice');
+
+        $invoice->restore();
+
+        if ($invoice->status_before_cancellation) {
+            $invoice->forceFill(['status' => $invoice->status_before_cancellation]);
+        }
+
+        $invoice->forceFill(['cancelled_at' => null])->saveQuietly();
+
+        return redirect()->route('invoices.show', $invoice->number ?? $invoice->id)
+            ->with('ok', __('ui.restored'));
     }
 
     public function submitForApproval(Request $request, string $key)

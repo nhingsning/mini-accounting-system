@@ -101,6 +101,7 @@ Route::get('/quotations/{quotation}/pdf', [QuotationController::class, 'pdf'])
 
 Route::resource('invoices', InvoiceController::class)
     ->only(['index','create','store','show','edit','update','destroy']);
+Route::post('/invoices/{invoice}/restore', [InvoiceController::class, 'restore'])->name('invoices.restore');
 Route::post('/invoices/{invoice}/submit-approval', [InvoiceController::class, 'submitForApproval'])
     ->name('invoices.submit-approval');
 Route::post('/invoices/{invoice}/approve', [InvoiceController::class, 'approve'])
@@ -122,6 +123,7 @@ Route::resource('po', PurchaseOrderController::class)
 
 Route::resource('quotations', QuotationController::class)
     ->only(['index','create','store','show','edit','update','destroy']);
+Route::post('/quotations/{quotation}/restore', [QuotationController::class, 'restore'])->name('quotations.restore');
 Route::post('/quotations/{quotation}/copy', [QuotationController::class, 'copy'])
     ->name('quotations.copy');
 Route::post('/quotations/{quotation}/convert/invoice', [QuotationController::class,'convertToInvoice'])->name('quotations.convert.invoice');
@@ -143,11 +145,13 @@ Route::redirect('/quotes/{quotation}/send', '/quotations/{quotation}/send')->nam
 Route::redirect('/quotes/{quotation}/convert', '/quotations/{quotation}/convert')->name('quotes.convert');
 
 Route::resource('receipts', ReceiptController::class)->only(['index','create','store','show','edit','update','destroy']);
+Route::post('/receipts/{receipt}/restore', [ReceiptController::class, 'restore'])->name('receipts.restore');
 Route::get('/receipts/{receiptKey}/pdf', [ReceiptController::class, 'pdf'])->name('receipts.pdf');
 Route::resource('debit-credit-note', CreditNoteController::class)
     ->only(['index','create','store','show','edit','update','destroy'])
     ->parameters(['debit-credit-note' => 'credit_note'])
     ->names('credit-notes');
+Route::post('/debit-credit-note/{credit_note}/restore', [CreditNoteController::class, 'restore'])->name('credit-notes.restore');
 Route::redirect('/credit-notes', '/debit-credit-note')->name('credit-notes.legacy');
 Route::redirect('/credit-notes/create', '/debit-credit-note/create');
 Route::redirect('/credit-notes/{credit_note}', '/debit-credit-note/{credit_note}');

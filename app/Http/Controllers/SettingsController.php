@@ -46,6 +46,7 @@ class SettingsController extends Controller
             'company_phone' => ['nullable', 'string', 'max:120'],
             'company_tax_id' => ['nullable', 'string', 'max:120'],
             'default_language' => ['required', Rule::in(['th', 'en'])],
+            'closed_periods' => ['nullable', 'string'],
         ]);
 
         if ($request->hasFile('logo')) {
@@ -58,12 +59,21 @@ class SettingsController extends Controller
             $data['logo_data_url'] = 'data:'.$mime.';base64,'.base64_encode($logoBinary);
         }
 
+        $closedRaw = $data['closed_periods'] ?? '';
+        unset($data['closed_periods']);
+
         foreach ($data as $key => $value) {
             if ($key === 'logo') {
                 continue;
             }
             Setting::setValue($key, $value);
         }
+
+        $periods = array_values(array_filter(array_map('trim', explode(',', (string) $closedRaw)), function ($p) {
+            return preg_match('/^\d{4}-\d{2}$/', $p);
+        }));
+
+        Setting::setValue('closed_periods', json_encode($periods));
 
         Cache::forget('app.settings');
 
